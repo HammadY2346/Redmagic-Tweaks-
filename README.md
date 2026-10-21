@@ -14,11 +14,26 @@ Every tweak is **off** until you turn it on, every visual option shows a **previ
   <em>The One UI 8 look, drawn by the app's own preview (lock screen, notifications, Control Center, volume, power menu, recent apps)</em>
 </p>
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/app-1-home.png" width="24%" alt="Home: status, Safe mode, search, looks">
+  <img src="docs/images/app-2-home-categories.png" width="24%" alt="The 12 categories">
+  <img src="docs/images/app-3-status-bar.png" width="24%" alt="Status bar category with its live preview">
+  <img src="docs/images/app-4-quick-panel.png" width="24%" alt="Quick panel category">
+</p>
+<p align="center">
+  <img src="docs/images/app-5-home-and-recents.png" width="24%" alt="Home, drawer and recents category">
+  <img src="docs/images/app-6-option-sheet.png" width="24%" alt="Choosing a recent apps style with a preview">
+  <img src="docs/images/app-7-about.png" width="24%" alt="About and credits">
+</p>
+
 ## Supported phones
 
 | Phone | Firmware | Status |
 |---|---|---|
-| REDMAGIC 10S Pro / 10 Pro (NX789J) | RedMagic OS 11 (Android 16) | Developed and tested on it |
+| REDMAGIC 10S Pro / 10 Pro (NX789J) | **China firmware, RedMagic OS 11.0.11** (Android 16) | Developed and tested on it |
+| REDMAGIC 10S Pro / 10 Pro (NX789J) | Global / EEA RedMagic OS 11 | Not tested yet. The global firmware differs a little from the Chinese one, so some tweaks may behave differently or do nothing. Reports are welcome |
 | Other REDMAGIC models | RedMagic OS 10 / 11 | Not tested. Most hooks look classes up by name and skip what they can't find, so a tweak may simply do nothing |
 
 ## Requirements

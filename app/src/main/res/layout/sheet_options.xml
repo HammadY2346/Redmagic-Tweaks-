@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Option sheet: the preview on top redraws as you tap options; nothing is saved until Apply. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:paddingBottom="12dp">
+    <View android:layout_width="36dp" android:layout_height="4dp" android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp" android:background="@drawable/badge_bg" android:backgroundTint="@color/outline" />
+    <TextView android:id="@+id/sheet_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingStart="24dp" android:paddingTop="14dp" android:paddingEnd="24dp"
+        android:textColor="@color/text" android:textSize="21sp" android:textStyle="bold" />
+    <TextView android:id="@+id/sheet_sub" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingStart="24dp" android:paddingTop="4dp" android:paddingEnd="24dp"
+        android:textColor="@color/text_dim" android:textSize="13sp" />
+    <ImageView android:id="@+id/sheet_preview" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal" android:layout_marginTop="12dp" android:adjustViewBounds="true"
+        android:maxHeight="300dp" android:contentDescription="Preview" />
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/sheet_list"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:clipToPadding="false" android:paddingStart="8dp" android:paddingEnd="8dp"
+        android:nestedScrollingEnabled="true" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="end" android:orientation="horizontal" android:paddingStart="16dp" android:paddingTop="8dp" android:paddingEnd="16dp">
+        <com.google.android.material.button.MaterialButton android:id="@+id/sheet_cancel"
+            style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@android:string/cancel" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/sheet_apply"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp"
+            android:text="Apply" />
+    </LinearLayout>
+</LinearLayout>

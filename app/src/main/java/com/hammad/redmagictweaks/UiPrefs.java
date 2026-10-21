@@ -6,11 +6,17 @@ import android.content.SharedPreferences;
 /** App-only presentation settings (not shared with the hooks). */
 public final class UiPrefs {
     private UiPrefs() {}
-    private static SharedPreferences p(Context c) { return c.getSharedPreferences("ui", Context.MODE_PRIVATE); }
-    /** Clean layout: compact cards without descriptions (long-press a card to read it), no section hints, slimmer home. */
-    public static boolean clean(Context c) { return p(c).getBoolean("clean", false); }
-    public static void setClean(Context c, boolean v) { p(c).edit().putBoolean("clean", v).apply(); }
-    /** Home screen grouped by topic (Battery & charging, Lock screen, ...) instead of by the app each tweak patches. */
-    public static boolean byTopic(Context c) { return p(c).getBoolean("by_topic", false); }
-    public static void setByTopic(Context c, boolean v) { p(c).edit().putBoolean("by_topic", v).apply(); }
+    static SharedPreferences p(Context c) { return c.getSharedPreferences("ui", Context.MODE_PRIVATE); }
+
+    /** Advanced mode: fine-tuning rows (nudges, offsets, rotation, the stock lock clock) and the Advanced category. */
+    public static boolean advanced(Context c) { return p(c).getBoolean("advanced", false); }
+    public static void setAdvanced(Context c, boolean v) { p(c).edit().putBoolean("advanced", v).apply(); }
+
+    /** The three first-run steps were shown. */
+    public static boolean firstRunDone(Context c) { return p(c).getBoolean("first_run_done", false); }
+    public static void setFirstRunDone(Context c) { p(c).edit().putBoolean("first_run_done", true).apply(); }
+
+    /** The Advanced category's warning was accepted once. */
+    public static boolean advancedWarned(Context c) { return p(c).getBoolean("advanced_warned", false); }
+    public static void setAdvancedWarned(Context c) { p(c).edit().putBoolean("advanced_warned", true).apply(); }
 }

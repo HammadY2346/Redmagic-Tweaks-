@@ -15,7 +15,12 @@ public final class Root {
         public boolean ok() { return code == 0; }
     }
 
+    /** Tests: never start su. */
+    static volatile boolean offline;
+
     public static Result run(String... commands) {
+        if (offline) return "id".equals(commands[0]) ? new Result(0, "uid=0(root)") : new Result(-1, "no root in tests");
+        if ("robolectric".equals(android.os.Build.FINGERPRINT)) return new Result(-1, "no root in tests");
         try {
             Process p = Runtime.getRuntime().exec("su");
             try (OutputStream os = p.getOutputStream()) {

@@ -89,6 +89,7 @@ public final class LayoutStore {
     public static JSONObject snapshot(Context c) throws JSONException {
         JSONObject v = new JSONObject();
         for (Map.Entry<String, ?> e : Prefs.get(c).getAll().entrySet()) {
+            if (Features.SAFE_MODE.equals(e.getKey())) continue;     // safe mode is not part of a look
             Object o = e.getValue();
             if (o instanceof Boolean) v.put(e.getKey(), new JSONObject().put("b", o));
             else if (o instanceof Integer) v.put(e.getKey(), new JSONObject().put("i", o));
@@ -102,10 +103,13 @@ public final class LayoutStore {
 
     /** Replaces the settings file with the layout's values (keys the layout doesn't have go back to their defaults). */
     public static void apply(Context c, Layout l) throws JSONException {
+        boolean safe = Prefs.on(c, Features.SAFE_MODE);
         SharedPreferences.Editor e = Prefs.get(c).edit().clear();
+        e.putBoolean(Features.SAFE_MODE, safe);
         Iterator<String> it = l.values.keys();
         while (it.hasNext()) {
             String k = it.next();
+            if (Features.SAFE_MODE.equals(k)) continue;
             JSONObject t = l.values.getJSONObject(k);
             if (t.has("b")) e.putBoolean(k, t.getBoolean("b"));
             else if (t.has("i")) e.putInt(k, t.getInt("i"));

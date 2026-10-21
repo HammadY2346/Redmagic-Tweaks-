@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * Visual previews for CHOICE features. A feature that registers a provider is shown as a picture grid
- * (ui/PickerActivity) instead of a plain radio list: each card shows the drawable for that index, tapping a
+ * (ui/OptionSheet) instead of a plain radio list: each card shows the drawable for that index, tapping a
  * card opens a large preview with "Use". Providers may return null for an index (card shows the label only)
  * and must be cheap enough to run on the UI thread for ~30 items, or do their own caching.
  *

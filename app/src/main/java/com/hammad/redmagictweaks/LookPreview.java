@@ -53,12 +53,14 @@ public final class LookPreview {
     public static String[] screensFor(String section) {
         if (section == null) return null;
         switch (section) {
-            case "qs": return new String[]{CC, SHADE};
+            case "qs": case "quickpanel": return new String[]{CC, SHADE};
             case "surface": return new String[]{SHADE, VOLUME, POWER};
-            case "lockscreen": case "t:lock": return new String[]{LOCK};
-            case "presets": return new String[]{LOCK, SHADE, CC};
-            case "statusbar": case "sbclock": case "sbicons": case "cosmetics": case "t:battery": return new String[]{BAR};
-            case "recents": case "t:recents": return new String[]{RECENTS};
+            case "notifications": return new String[]{SHADE};
+            case "volume": return new String[]{VOLUME, POWER};
+            case "lockscreen": return new String[]{LOCK};
+            case "presets": case "looks": return new String[]{LOCK, SHADE, CC};
+            case "statusbar": case "sbclock": case "sbicons": case "cosmetics": return new String[]{BAR};
+            case "recents": case "home": return new String[]{RECENTS};
             default: return null;
         }
     }

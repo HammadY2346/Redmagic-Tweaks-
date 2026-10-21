@@ -267,66 +267,6 @@ public final class Features {
         FrameworkFeatures.SECTION, SettingsFeatures.SECTION, ExtrasFeatures.SECTION, INSTALLER
     };
 
-    // ------------------------------------------------------------------ "By topic" layout (UiPrefs.byTopic)
-    // The sections above follow the app each tweak patches. By topic, everything about the battery / charging and
-    // everything shown on the lock screen is gathered in one place each; the other sections keep the rest. Same
-    // features and keys, only the grouping differs. Topic section ids start with "t:".
-    public static final String TOPIC_PREFIX = "t:";
-    private static Section[] topics;
-
-    private static boolean isBattery(Section s, Feature f) {
-        if (s == Presets.SECTION) return false;
-        String t = f.title.toLowerCase(java.util.Locale.ROOT);
-        if (t.contains("charg")) return true;                                   // charging animation / readout / symbol / separation
-        return t.contains("battery") && s != LockFeatures.SECTION;              // the lock screen battery widget stays with the lock screen
-    }
-    private static final java.util.Set<String> LOCK_EXTRA = new java.util.HashSet<>(java.util.Arrays.asList(
-        CosmeticsFeatures.COS_CLOCK_FONT, CosmeticsFeatures.COS_FONT_IMPORT,
-        FP_UNLOCK_ALL, FP_CHISA, FP_FIGHTING, FP_WW, FP_LTY, FP_SAGA, FrameworkFeatures.NO_72H));
-    private static boolean isLock(Section s, Feature f) {
-        if (s == Presets.SECTION) return false;
-        return s == LockFeatures.SECTION || s == FingerprintCustomFeatures.SECTION || LOCK_EXTRA.contains(f.key);
-    }
-
-    public static synchronized Section[] topicSections() {
-        if (topics != null) return topics;
-        List<Feature> bat = new ArrayList<>(), lock = new ArrayList<>();
-        java.util.LinkedHashSet<String> batPk = new java.util.LinkedHashSet<>(), lockPk = new java.util.LinkedHashSet<>();
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        java.util.Map<Section, List<Feature>> rest = new java.util.LinkedHashMap<>();
-        for (Section s : SECTIONS) {
-            List<Feature> left = new ArrayList<>();
-            for (Feature f : s.features) {
-                if (isBattery(s, f)) { if (seen.add(f.key)) { bat.add(f); batPk.addAll(java.util.Arrays.asList(s.packages)); } }
-                else if (isLock(s, f)) { if (seen.add(f.key)) { lock.add(f); lockPk.addAll(java.util.Arrays.asList(s.packages)); } }
-                else left.add(f);
-            }
-            rest.put(s, left);
-        }
-        List<Section> out = new ArrayList<>();
-        for (Section s : SECTIONS) {
-            if (s == Presets.SECTION) {
-                out.add(copy(s, rest.get(s)));
-                out.add(new Section(TOPIC_PREFIX + "battery", "Battery & charging",
-                        "Battery icon and readouts, charging animation, power saving and charging switches",
-                        SYSTEMUI.icon, batPk.toArray(new String[0]), bat.toArray(new Feature[0])));
-                out.add(new Section(TOPIC_PREFIX + "lock", "Lock screen",
-                        "Clock, widgets, notifications, AOD, fingerprint icon and animations",
-                        LockFeatures.SECTION.icon, lockPk.toArray(new String[0]), lock.toArray(new Feature[0])));
-                continue;
-            }
-            List<Feature> left = rest.get(s);
-            if (left != null && !left.isEmpty()) out.add(copy(s, left));
-        }
-        topics = out.toArray(new Section[0]);
-        return topics;
-    }
-    private static Section copy(Section s, List<Feature> f) {
-        return new Section(TOPIC_PREFIX + s.id, s.title, s.subtitle, s.icon, s.packages, f.toArray(new Feature[0]));
-    }
-    /** The sections the home screen shows: by app (default) or by topic. */
-    public static Section[] visible(android.content.Context c) { return UiPrefs.byTopic(c) ? topicSections() : SECTIONS; }
-
     public static List<Feature> all() {
         List<Feature> l = new ArrayList<>();
         for (Section s : SECTIONS) for (Feature f : s.features) l.add(f);
@@ -339,7 +279,6 @@ public final class Features {
     }
 
     public static Section section(String id) {
-        if (id != null && id.startsWith(TOPIC_PREFIX)) { for (Section s : topicSections()) if (s.id.equals(id)) return s; return null; }
         for (Section s : SECTIONS) if (s.id.equals(id)) return s;
         return null;
     }

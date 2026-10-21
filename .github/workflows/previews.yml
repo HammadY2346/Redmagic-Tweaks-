@@ -8,6 +8,8 @@ on:
       - 'app/src/main/java/com/hammad/redmagictweaks/Presets.java'
       - 'app/src/main/java/com/hammad/redmagictweaks/xposed/RecentsArt.java'
       - 'app/src/test/**'
+      - 'app/src/main/java/com/hammad/redmagictweaks/ui/**'
+      - 'app/src/main/res/**'
       - '.github/workflows/previews.yml'
   workflow_dispatch:
 permissions:
@@ -41,8 +43,12 @@ jobs:
       - name: Render
         run: |
           set -o pipefail
+          # the look previews once, the app screenshots for each flavour this repo builds (the public ones go in the README)
           if [ -d app/src/private ]; then T=testPrivateDebugUnitTest; else T=testPublicDebugUnitTest; fi
-          gradle --no-daemon ":app:$T" --tests com.hammad.redmagictweaks.PreviewRenderTest 2>&1 | tee render.log
+          gradle --no-daemon ":app:$T" --tests com.hammad.redmagictweaks.PreviewRenderTest --tests com.hammad.redmagictweaks.ScreenshotTest 2>&1 | tee render.log
+          if [ "$T" = testPrivateDebugUnitTest ]; then
+            gradle --no-daemon ":app:testPublicDebugUnitTest" --tests com.hammad.redmagictweaks.ScreenshotTest 2>&1 | tee -a render.log
+          fi
       - name: Publish
         if: always()
         env:

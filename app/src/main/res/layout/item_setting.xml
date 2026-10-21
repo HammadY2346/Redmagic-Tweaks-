@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One setting: name, current value in red, a dot when it differs from stock, a badge when it needs a restart. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/row"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:gravity="center_vertical" android:minHeight="64dp" android:orientation="horizontal"
+    android:paddingStart="20dp" android:paddingTop="12dp" android:paddingEnd="12dp" android:paddingBottom="12dp">
+    <ImageView android:id="@+id/thumb" android:layout_width="44dp" android:layout_height="44dp"
+        android:layout_marginEnd="14dp" android:background="@drawable/badge_bg" android:padding="5dp"
+        android:scaleType="fitCenter" android:visibility="gone" android:contentDescription="@null" />
+    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:id="@+id/title" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_weight="1" android:textColor="@color/text" android:textSize="16sp" />
+            <View android:id="@+id/changed" android:layout_width="7dp" android:layout_height="7dp"
+                android:layout_marginStart="8dp" android:background="@drawable/dot_accent" android:visibility="gone" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:id="@+id/value" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:ellipsize="end" android:maxLines="1" android:textColor="@color/accent"
+                android:textSize="13.5sp" android:visibility="gone" />
+            <TextView android:id="@+id/badge" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="8dp" android:layout_marginTop="2dp" android:background="@drawable/badge_bg"
+                android:paddingStart="7dp" android:paddingTop="1dp" android:paddingEnd="7dp" android:paddingBottom="1dp"
+                android:textColor="@color/text_dim" android:textSize="10.5sp" android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+    <ImageView android:id="@+id/info" android:layout_width="40dp" android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless" android:padding="10dp"
+        android:alpha="0.55" android:src="@drawable/ic_info_outline" android:contentDescription="What it does" />
+    <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/toggle"
+        android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp"
+        android:visibility="gone" />
+</LinearLayout>

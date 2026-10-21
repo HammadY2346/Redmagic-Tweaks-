@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Light palette; values-night/colors.xml is the dark one (the default look: the app follows the system theme). -->
 <resources>
-    <color name="bg">#FF0A0A0E</color>
-    <color name="surface">#FF15161C</color>
-    <color name="surface_hi">#FF1E2028</color>
-    <color name="outline">#FF2A2D37</color>
-    <color name="accent">#FFFF3B3B</color>
-    <color name="accent_dim">#33FF3B3B</color>
+    <color name="bg">#FFF3F3F6</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_hi">#FFEDEDF1</color>
+    <color name="outline">#FFDCDDE3</color>
+    <color name="accent">#FFE0242C</color>
+    <color name="accent_dim">#26E0242C</color>
     <color name="on_accent">#FFFFFFFF</color>
-    <color name="text">#FFF2F3F7</color>
-    <color name="text_dim">#FF9AA0AE</color>
-    <color name="ok">#FF3DDC84</color>
-    <color name="warn">#FFFFB13D</color>
-    <color name="err">#FFFF5252</color>
+    <color name="text">#FF14151A</color>
+    <color name="text_dim">#FF636774</color>
+    <color name="ok">#FF1F9D57</color>
+    <color name="warn">#FFC77700</color>
+    <color name="err">#FFD93636</color>
     <color name="ic_launcher_background">#FF0A0A0E</color>
 </resources>
