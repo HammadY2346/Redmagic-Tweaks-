@@ -1,4 +1,4 @@
-43:BUILD SUCCESSFUL in 32s
+43:BUILD SUCCESSFUL in 41s
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :app:preBuild UP-TO-DATE
@@ -14,10 +14,10 @@ Daemon will be stopped at the end of the build
 > Task :app:createPublicDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksPublicDebug
 > Task :app:processPublicDebugMainManifest
+> Task :app:parsePublicDebugLocalResources
 > Task :app:processPublicDebugManifest
 > Task :app:prePublicDebugUnitTestBuild UP-TO-DATE
 > Task :app:javaPreCompilePublicDebugUnitTest
-> Task :app:parsePublicDebugLocalResources
 > Task :app:mergePublicDebugShaders
 > Task :app:compilePublicDebugShaders NO-SOURCE
 > Task :app:generatePublicDebugAssets UP-TO-DATE
@@ -39,7 +39,7 @@ Note: Recompile with -Xlint:unchecked for details.
 > Task :app:compilePublicDebugUnitTestJavaWithJavac
 > Task :app:generatePublicDebugUnitTestConfig
 > Task :app:testPublicDebugUnitTest
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792580079061.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792583184603.json
 
-BUILD SUCCESSFUL in 32s
+BUILD SUCCESSFUL in 41s
 25 actionable tasks: 25 executed
