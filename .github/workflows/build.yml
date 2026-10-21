@@ -61,22 +61,28 @@ jobs:
             echo "::error::Add the KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD repository secrets before releasing: a release signed with a throwaway key would not update over the next one."
             exit 1
           fi
+          # a key problem fails a release (tag) build; a normal build warns and signs with the debug key instead
+          keyfail() {
+            if [ "${GITHUB_REF_TYPE}" = tag ]; then echo "::error::$1"; exit 1; fi
+            echo "::warning::$1 This build is signed with the debug key instead (fine for testing, not for a release)."
+            rm -f "$RUNNER_TEMP/release.jks"
+          }
           if [ -n "$KEYSTORE_B64" ]; then
             # tolerate line breaks / spaces from copying; then check the password opens it, with a readable error
-            if ! printf '%s' "$KEYSTORE_B64" | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/release.jks" 2>/dev/null; then
-              echo "::error::The KEYSTORE_B64 secret is not valid base64. Paste the whole content of redmagictweaks-release.jks.b64 (one long line) as the secret."
-              exit 1
+            OK=1
+            if ! printf '%s' "$KEYSTORE_B64" | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/release.jks" 2>/dev/null || [ "$(stat -c %s "$RUNNER_TEMP/release.jks")" -lt 1000 ]; then
+              OK=0; keyfail "The KEYSTORE_B64 secret is not the key. It must be the text inside the .b64 key file: about 5,800 letters and digits in one line. Open the file, select all, copy, and paste that as the secret."
             fi
-            if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1; then
-              echo "::error::KEYSTORE_PASSWORD does not open the keystore from KEYSTORE_B64 (or KEYSTORE_B64 is not the .jks.b64 file). Check both secrets against release-key.txt."
-              exit 1
+            if [ $OK = 1 ] && ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+              OK=0; keyfail "KEYSTORE_PASSWORD does not open the key in KEYSTORE_B64. Check both secrets against release-key.txt."
             fi
-            if [ -n "$KEY_ALIAS" ] && ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-              echo "::error::The KEY_ALIAS secret should be: redmagictweaks"
-              exit 1
+            if [ $OK = 1 ] && [ -n "$KEY_ALIAS" ] && ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+              OK=0; keyfail "The KEY_ALIAS secret does not match the key: it should be the alias in release-key.txt."
             fi
-            echo "RMTWEAKS_KEYSTORE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
-            echo "Signing with the release key from the repository secrets"
+            if [ $OK = 1 ]; then
+              echo "RMTWEAKS_KEYSTORE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
+              echo "Signing with the release key from the repository secrets"
+            fi
           fi
       - name: Build
         id: build
