@@ -4,6 +4,11 @@ on:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Public build: version to release from this commit (for example v1.0.0); empty = just build'
+        required: false
+        default: ''
 permissions:
   contents: write
 jobs:
@@ -48,6 +53,7 @@ jobs:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RELEASE_INPUT: ${{ github.event.inputs.release }}
         run: |
           # the private repo has app/src/private and builds RM Tweaks; the public repo builds RedMagic Tweaks
           if [ -d app/src/private ]; then
@@ -57,13 +63,22 @@ jobs:
             echo "FLAVOR=public" >> $GITHUB_ENV; echo "TASK=assemblePublicRelease" >> $GITHUB_ENV
             echo "APK_NAME=RedMagicTweaks" >> $GITHUB_ENV; echo "TITLE=RedMagic Tweaks" >> $GITHUB_ENV
           fi
-          if [ ! -d app/src/private ] && [ "${GITHUB_REF_TYPE}" = tag ] && [ -z "$KEYSTORE_B64" ]; then
+          # a public release: a v* tag pushed, or "release" given when running the workflow by hand
+          REL=""
+          if [ ! -d app/src/private ]; then
+            if [ "${GITHUB_REF_TYPE}" = tag ]; then REL="${GITHUB_REF_NAME}"; else REL="$RELEASE_INPUT"; fi
+          fi
+          if [ -n "$REL" ] && ! printf '%s' "$REL" | grep -qE '^v[0-9]+(\.[0-9]+){1,3}$'; then
+            echo "::error::A release version looks like v1.0.0 (got: $REL)"; exit 1
+          fi
+          echo "RELEASE_TAG=$REL" >> $GITHUB_ENV
+          if [ ! -d app/src/private ] && [ -n "$REL" ] && [ -z "$KEYSTORE_B64" ]; then
             echo "::error::Add the KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD repository secrets before releasing: a release signed with a throwaway key would not update over the next one."
             exit 1
           fi
           # a key problem fails a release (tag) build; a normal build warns and signs with the debug key instead
           keyfail() {
-            if [ "${GITHUB_REF_TYPE}" = tag ]; then echo "::error::$1"; exit 1; fi
+            if [ -n "$REL" ]; then echo "::error::$1"; exit 1; fi
             echo "::warning::$1 This build is signed with the debug key instead (fine for testing, not for a release)."
             rm -f "$RUNNER_TEMP/release.jks"
           }
@@ -111,12 +126,12 @@ jobs:
       - name: Rename
         run: |
           mkdir -p out
-          if [ "$FLAVOR" = public ] && [ "${GITHUB_REF_TYPE}" = tag ]; then V="${GITHUB_REF_NAME}"; else V="$(git rev-parse --short HEAD)"; fi
+          if [ -n "$RELEASE_TAG" ]; then V="$RELEASE_TAG"; else V="$(git rev-parse --short HEAD)"; fi
           cp app/build/outputs/apk/$FLAVOR/release/app-$FLAVOR-release.apk "out/${APK_NAME}-${V}.apk"
           ls -l out
       - name: Release
-        # private: every build is a release; public: only version tags (v1.0.0 ...), with docs/release-notes/<tag>.md
-        if: env.FLAVOR == 'private' || github.ref_type == 'tag'
+        # private: every build is a release; public: only versions (a v* tag, or "release" on a manual run), with release-notes/<version>.md
+        if: env.FLAVOR == 'private' || env.RELEASE_TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -125,9 +140,14 @@ jobs:
             git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt
             gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --title "$TITLE $TAG" --notes-file notes.txt
           else
-            TAG="${GITHUB_REF_NAME}"
-            if [ -f "release-notes/$TAG.md" ]; then cp "release-notes/$TAG.md" notes.txt; else git log -1 --format=%B > notes.txt; fi
-            gh release create "$TAG" out/*.apk --verify-tag --title "$TITLE $TAG" --notes-file notes.txt
+            TAG="$RELEASE_TAG"
+            if [ -f "release-notes/$TAG.md" ]; then cp "release-notes/$TAG.md" notes.txt; else git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt; fi
+            # a pushed tag already exists; a manual release creates the tag on this commit
+            if [ "${GITHUB_REF_TYPE}" = tag ]; then
+              gh release create "$TAG" out/*.apk --verify-tag --title "$TITLE $TAG" --notes-file notes.txt
+            else
+              gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --title "$TITLE $TAG" --notes-file notes.txt
+            fi
           fi
       - name: Upload APK
         uses: actions/upload-artifact@v4

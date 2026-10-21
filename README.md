@@ -95,7 +95,8 @@ RedMagic Tweaks has a fail-safe:
 ```
 
 The APK lands in `app/build/outputs/apk/public/release/`. Without a signing key it is signed with the debug key. CI
-(`.github/workflows/build.yml`) builds every push and publishes a release for every `v*` tag. `Previews` renders the
+(`.github/workflows/build.yml`) builds every push and publishes a release for every `v*` tag, or when it is run by hand
+from the Actions page with a version in "release". `Previews` renders the
 app's look previews with Robolectric so drawings can be checked without a phone.
 
 Source layout: `app/src/main/java/com/hammad/redmagictweaks/` holds the settings app and the feature catalogue,
