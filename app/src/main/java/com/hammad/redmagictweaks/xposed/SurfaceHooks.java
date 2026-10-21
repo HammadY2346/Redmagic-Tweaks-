@@ -278,6 +278,7 @@ final class SurfaceHooks {
                     boolean oneUi = s().volOneUi;
                     for (Map.Entry<SeekBar, RowEntry> e : new ArrayList<>(volumeRows.entrySet()))
                         if (e.getValue().dialog.get() == p.thisObject) { if (oneUi) oneUiGeometry(e.getKey()); else stockGeometry(e.getKey(), e.getValue()); }
+                    if (oneUi && volStockFields.containsKey(p.thisObject)) volLayout(p.thisObject);   // rows added since the last layout
                 } catch (Throwable t) { Lx.e("Surface: volume rows", t); }
             }
         };
@@ -458,7 +459,8 @@ final class SurfaceHooks {
             int room = dv.getResources().getDisplayMetrics().heightPixels - stockH - dp(dv, 64);
             extra = Math.max(0, Math.min(extra, room));
         }
-        int dCol = col - stockCol, minCol = on ? col : -1;
+        int minCol = on ? col : -1;
+        StringBuilder geo = new StringBuilder();
         boolean inside = on && OneUiVolumeArt.iconInside(cur.one);
         Object list = XposedHelpers.getObjectField(dlg, "mRows");
         if (list instanceof List && ((List<?>) list).size() <= 32) {
@@ -479,7 +481,23 @@ final class SurfaceHooks {
                 int slider = on && fst[1] > 0 && sst[0] > 0 ? fst[1] + extra + fold - dp(dv, 6) - sst[0] : 0;
                 fit(sb, on ? slider : 0, KEEP, -1, -1, 0);
                 fit(frame, KEEP, extra + fold, -1, -1, 0);
-                fit(inner, dCol, extra, -1, -1, 0);
+                // ZTE sizes the column in the default dpi, the row's own views in the current one: size them to the column
+                int[] ist0 = stockLp(inner);
+                fit(inner, on && ist0[0] > 0 ? col - ist0[0] : 0, extra, -1, -1, 0);
+                if (inner.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams) {
+                    android.widget.FrameLayout.LayoutParams flp = (android.widget.FrameLayout.LayoutParams) inner.getLayoutParams();
+                    if (flp.gravity != android.view.Gravity.CENTER) { flp.gravity = android.view.Gravity.CENTER; inner.setLayoutParams(flp); }
+                }
+                // the row itself is as wide as the column (a wider row sits left-aligned in the column and looks shifted right)
+                View root = viewField(row, "view");
+                if (on && !expanded && root != null && root.getLayoutParams() != null && root.getLayoutParams().width != col) {
+                    ViewGroup.LayoutParams rlp = root.getLayoutParams();
+                    rlp.width = col;
+                    root.setLayoutParams(rlp);
+                }
+                if (on && sb.isShown()) geo.append(" row[root ").append(root == null ? -1 : root.getWidth()).append('/').append(root == null || root.getLayoutParams() == null ? -9 : root.getLayoutParams().width)
+                        .append(" inner ").append(inner.getLeft()).append('+').append(inner.getWidth()).append(" frame ").append(frame.getWidth()).append('x').append(frame.getHeight())
+                        .append(" slider ").append(sb.getLeft()).append(',').append(sb.getTop()).append(' ').append(sb.getWidth()).append('x').append(sb.getHeight()).append(']');
                 if (icon != null) fit(icon, KEEP, KEEP, -1, -1, -fold);
                 if (!on && icon != null) { icon.setTranslationY(0f); if (volMovedIcons.remove(icon) != null && icon instanceof ImageView) ((ImageView) icon).setImageTintList(null); }
                 else if (on && !inside && icon != null && volMovedIcons.remove(icon) != null) { icon.setTranslationY(0f); if (icon instanceof ImageView) ((ImageView) icon).setImageTintList(null); }
@@ -490,11 +508,25 @@ final class SurfaceHooks {
         fit(rows, KEEP, KEEP, minCol, -1, 0);
         fit(rows2, KEEP, extra, minCol, -1, 0);
         fit(dv, KEEP, extra, -1, -1, 0);
-        fit(viewField(dlg, "mExpandButton"), dCol, KEEP, -1, -1, 0);
+        View expand = viewField(dlg, "mExpandButton");
+        if (expand != null && expand.getLayoutParams() != null) { int[] est = stockLp(expand); fit(expand, on && est[0] > 0 ? col - est[0] : 0, KEEP, -1, -1, 0); }
         View ringer = viewField(dlg, "mRinger");
-        if (on && !expanded) fit(ringer, KEEP, dCol, col, col, 0);
-        else fit(ringer, KEEP, 0, -1, -1, 0);
+        if (ringer != null && ringer.getLayoutParams() != null) {
+            int[] rst = stockLp(ringer);
+            if (on && !expanded) fit(ringer, KEEP, rst[1] > 0 ? col - rst[1] : 0, col, col, 0);
+            else fit(ringer, KEEP, 0, -1, -1, 0);
+        }
+        // ConstraintLayout keeps its own minimum width (android:minWidth of the column), not the View one
+        if (mainV != null) { try { XposedHelpers.callMethod(mainV, "setMinWidth", on ? col : stockLp(mainV)[2]); } catch (Throwable ignored) { } }
+        if (on) {
+            geo.insert(0, "Surface: volume geometry d=" + density(dv) + " col=" + col + " stockCol=" + stockCol + " expanded=" + expanded + " extra=" + extra
+                    + " rows=" + (rows == null ? -1 : rows.getWidth()) + " main=" + (mainV == null ? -1 : mainV.getWidth()) + " dialog=" + dv.getWidth());
+            String g = geo.toString();
+            if (!g.equals(lastGeo)) { lastGeo = g; Lx.i(g); }
+        }
     }
+
+    private static String lastGeo = "";
 
     private static View viewField(Object o, String name) {
         try { Object v = XposedHelpers.getObjectField(o, name); return v instanceof View ? (View) v : null; } catch (Throwable t) { return null; }

@@ -42,25 +42,43 @@ public final class Root {
     }
 
     /**
-     * Restarts every package. {@code am force-stop} alone is not enough: Android skips persistent processes (System UI,
-     * the phone process, NFC) on force-stop, so "Restart System UI" used to leave System UI running with the old settings.
-     * Every process of the package (also ":screenshot" and the other sub-processes) is killed as well; persistent ones
-     * are started again by Android within a second or two.
+     * Restarts every package: each of its processes is killed once, and Android starts the persistent ones (System UI,
+     * NFC) again within a second or two.
+     *
+     * Wallpapers: Android clears the wallpaper (home and lock, back to the default) when the package that draws it is
+     * force-stopped (WallpaperManagerService treats a force-stopped wallpaper package like an uninstalled one), and when
+     * the wallpaper's process dies twice within 10 seconds. System UI draws every picture wallpaper (ImageWallpaper),
+     * so it is never force-stopped, nor is the package of a live wallpaper in use; and System UI is never killed sooner
+     * than 12 seconds after the last time this app killed it. Other apps get {@code am force-stop} first.
      */
     public static Result restartApps(String... packages) {
         java.util.List<String> cmds = new java.util.ArrayList<>();
+        // packages that draw the home / lock wallpaper right now (ComponentInfo{pkg/...} in dumpsys wallpaper)
+        cmds.add("WP=\" $(dumpsys wallpaper 2>/dev/null | grep -oE 'ComponentInfo\\{[^/}]+' | sed 's/ComponentInfo{//' | sort -u | tr '\\n' ' ') " + SYSUI + " \"");
         for (String pkg : packages) {
             if (pkg == null || pkg.isEmpty() || "android".equals(pkg)) continue;
-            cmds.add("am force-stop " + pkg + " 2>/dev/null");
             cmds.add(killCmd(pkg));
         }
         cmds.add("true");
         return run(cmds.toArray(new String[0]));
     }
 
-    private static String killCmd(String pkg) {
+    static final String SYSUI = "com.android.systemui";
+    /** When this app last killed System UI (seconds since the epoch), to keep two kills 12 seconds apart. */
+    private static final String SYSUI_STAMP = "/data/local/tmp/.rmt_sysui_kill";
+
+    /** Shell for one package: its process ids first, force-stop unless it draws the wallpaper, then kill what is left once. */
+    static String killCmd(String pkg) {
         String re = pkg.replace(".", "\\.");
-        return "ps -A -o PID=,NAME= | grep -E ' " + re + "(:.*)?$' | while read pid name; do kill -9 $pid; done";
+        StringBuilder b = new StringBuilder();
+        if (SYSUI.equals(pkg))
+            b.append("L=$(cat ").append(SYSUI_STAMP).append(" 2>/dev/null || echo 0); N=$(date +%s); D=$((N - L)); ")
+             .append("if [ $D -ge 0 ] && [ $D -lt 12 ]; then sleep $((12 - D)); fi; date +%s > ").append(SYSUI_STAMP).append("; ");
+        b.append("P=$(ps -A -o PID=,NAME= | grep -E ' ").append(re).append("(:.*)?$' | while read pid name; do echo $pid; done); ");
+        if (!SYSUI.equals(pkg))
+            b.append("case \"$WP\" in *\" ").append(pkg).append(" \"*) ;; *) am force-stop ").append(pkg).append(" 2>/dev/null ;; esac; ");
+        b.append("for p in $P; do [ -d /proc/$p ] && kill -9 $p; done");
+        return b.toString();
     }
 
     /** Process ids of the package's main process ("" when it isn't running). */
@@ -74,12 +92,12 @@ public final class Root {
      * 0 when it did, 2 when System UI kept its old process (then a soft reboot is the way).
      */
     public static Result restartSystemUi() {
-        String before = pid("com.android.systemui");
-        Result r = restartApps("com.android.systemui");
+        String before = pid(SYSUI);
+        Result r = restartApps(SYSUI);
         if (!r.ok()) return r;
         for (int i = 0; i < 30; i++) {
             try { Thread.sleep(200); } catch (InterruptedException e) { break; }
-            String now = pid("com.android.systemui");
+            String now = pid(SYSUI);
             if (!now.isEmpty() && !now.equals(before)) return new Result(0, "System UI restarted (" + (before.isEmpty() ? "-" : before) + " -> " + now + ")");
         }
         return new Result(2, "System UI did not restart (still " + before + ")");

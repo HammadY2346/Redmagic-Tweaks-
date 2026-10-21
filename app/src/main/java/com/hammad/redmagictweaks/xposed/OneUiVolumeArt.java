@@ -26,7 +26,7 @@ public final class OneUiVolumeArt {
             VOL_FILL = "vol_oneui_color", VOL_TRACK = "vol_oneui_track", VOL_ICON = "vol_oneui_icon", VOL_LEVEL = "vol_oneui_level";
     public static final String PWR_SIZE = "pwr_oneui_size", PWR_SHAPE = "pwr_oneui_shape", PWR_COLORS = "pwr_oneui_colors", PWR_LABELS = "pwr_oneui_labels";
 
-    public static final String[] WIDTHS = {"One UI (40 dp)", "Slim (32 dp)", "Narrow (36 dp)", "Medium (44 dp)", "Wide (52 dp)"};
+    public static final String[] WIDTHS = {"One UI (40 dp)", "Slim (32 dp)", "Narrow (36 dp)", "Medium (44 dp)", "Stock width (52 dp)"};
     private static final int[] WIDTH_DP = {40, 32, 36, 44, 52};
     public static final String[] HEIGHTS = {"One UI (80 dp taller)", "Stock height", "40 dp taller", "120 dp taller", "160 dp taller"};
     private static final int[] HEIGHT_DP = {80, 0, 40, 120, 160};
