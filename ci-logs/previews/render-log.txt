@@ -1,4 +1,4 @@
-43:BUILD SUCCESSFUL in 52s
+43:BUILD SUCCESSFUL in 42s
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :app:preBuild UP-TO-DATE
@@ -10,21 +10,21 @@ Daemon will be stopped at the end of the build
 > Task :app:mapPublicDebugSourceSetPaths
 > Task :app:generatePublicDebugResources
 > Task :app:packagePublicDebugResources
-> Task :app:mergePublicDebugResources
 > Task :app:createPublicDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksPublicDebug
+> Task :app:mergePublicDebugResources
 > Task :app:processPublicDebugMainManifest
-> Task :app:parsePublicDebugLocalResources
 > Task :app:processPublicDebugManifest
 > Task :app:prePublicDebugUnitTestBuild UP-TO-DATE
 > Task :app:javaPreCompilePublicDebugUnitTest
+> Task :app:parsePublicDebugLocalResources
 > Task :app:mergePublicDebugShaders
-> Task :app:processPublicDebugManifestForPackage
 > Task :app:compilePublicDebugShaders NO-SOURCE
 > Task :app:generatePublicDebugAssets UP-TO-DATE
 > Task :app:mergePublicDebugAssets
 > Task :app:processPublicDebugJavaRes NO-SOURCE
 > Task :app:processPublicDebugUnitTestJavaRes NO-SOURCE
+> Task :app:processPublicDebugManifestForPackage
 > Task :app:processPublicDebugResources
 
 > Task :app:compilePublicDebugJavaWithJavac
@@ -39,7 +39,7 @@ Note: Recompile with -Xlint:unchecked for details.
 > Task :app:compilePublicDebugUnitTestJavaWithJavac
 > Task :app:generatePublicDebugUnitTestConfig
 > Task :app:testPublicDebugUnitTest
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792587206214.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792589312057.json
 
-BUILD SUCCESSFUL in 52s
+BUILD SUCCESSFUL in 42s
 25 actionable tasks: 25 executed
