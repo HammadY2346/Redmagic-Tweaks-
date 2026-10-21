@@ -30,7 +30,10 @@ public final class OneUiVolumeArt {
     private static final int[] WIDTH_DP = {40, 32, 36, 44, 52};
     public static final String[] HEIGHTS = {"One UI (80 dp taller)", "Stock height", "40 dp taller", "120 dp taller", "160 dp taller"};
     private static final int[] HEIGHT_DP = {80, 0, 40, 120, 160};
-    public static final String[] SHAPES = {"Pill (One UI)", "Rounded", "Soft square", "Square", "Leaf"};
+    public static final String[] SHAPES = {"Pill (One UI)", "Rounded", "Soft square", "Square", "Leaf", "Pointed", "Thin line", "Segments",
+            "Dots", "Outline", "Notched"};
+    /** Shapes whose panel and ringer button stay round (the drawn bar has its own look). */
+    private static final int SHAPE_POINTED = 5, SHAPE_THIN = 6, SHAPE_SEGMENTS = 7, SHAPE_DOTS = 8, SHAPE_OUTLINE = 9, SHAPE_NOTCHED = 10;
     public static final String[] FILLS = {"One UI (light)", "Wallpaper colour", "RedMagic red", "Blue", "Green", "Purple", "Orange", "Pink",
             "Teal", "Gold", "Sunset gradient", "Ocean gradient", "RedMagic gradient", "Aurora gradient"};
     private static final int[][] FILL_RGB = {null, null, {0xFFE8343B}, {0xFF3E8BFF}, {0xFF34C759}, {0xFF9B6BFF}, {0xFFFF9F0A}, {0xFFFF5C93},
@@ -122,6 +125,7 @@ public final class OneUiVolumeArt {
             case 2: r = Math.min(10 * d, half); break;
             case 3: r = Math.min(4 * d, half); break;
             case 4: { float s = Math.min(6 * d, half); return new float[]{s, s, half, half, s, s, half, half}; }
+            case SHAPE_NOTCHED: r = Math.min(12 * d, half); break;
             default: r = half;
         }
         return new float[]{r, r, r, r, r, r, r, r};
@@ -129,7 +133,8 @@ public final class OneUiVolumeArt {
 
     /** Corner radii of the panel around a bar (and of the ringer button), as you see it; null = leave stock (pill). */
     public static float[] panelRadii(Look l, float width, float d) {
-        if (l.shape == 0) return null;
+        if (l.shape == 0 || (l.shape >= SHAPE_POINTED && l.shape != SHAPE_NOTCHED)) return null;
+        if (l.shape == SHAPE_NOTCHED) { float r = Math.min(14 * d, width / 2f); return new float[]{r, r, r, r, r, r, r, r}; }
         float half = width / 2f, r;
         switch (l.shape) {
             case 1: r = Math.min(18 * d, half); break;
@@ -152,27 +157,90 @@ public final class OneUiVolumeArt {
         float[] radii = barRadii(l, thick, d);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         int trackColor = track(l, fill, dark);
+        float f = Float.isFinite(fraction) ? Math.max(0f, Math.min(1f, fraction)) : 0f;
+        float len = com.hammad.redmagictweaks.xposed.QsArt.oneUi8FillLength(t, f);
         Path path = new Path();
-        if (trackColor != 0) {
-            path.addRoundRect(t, radii, Path.Direction.CW);
-            p.setColor(trackColor);
-            c.drawPath(path, p);
+        switch (l.shape) {
+            case SHAPE_POINTED: {
+                if (trackColor != 0) { pointed(path, t); p.setColor(trackColor); c.drawPath(path, p); }
+                path.reset(); pointed(path, new RectF(t.left, t.top, t.left + len, t.bottom));
+                fillPaint(p, t, fill); c.drawPath(path, p);
+                break;
+            }
+            case SHAPE_THIN: {
+                // a thin line with a knob at the level; the circle at the start holds the speaker icon
+                float lt = Math.max(4 * d, thick * 0.22f), cy = t.centerY(), start = t.left + thick / 2f, knob = Math.max(start, t.left + len - thick / 2f);
+                if (trackColor != 0) { p.setColor(trackColor); c.drawRoundRect(new RectF(start, cy - lt / 2, t.right - thick * 0.25f, cy + lt / 2), lt / 2, lt / 2, p); }
+                fillPaint(p, t, fill);
+                c.drawRoundRect(new RectF(start, cy - lt / 2, knob, cy + lt / 2), lt / 2, lt / 2, p);
+                c.drawCircle(start, cy, thick / 2f, p);
+                c.drawCircle(knob, cy, thick * 0.3f, p);
+                break;
+            }
+            case SHAPE_SEGMENTS: case SHAPE_DOTS: {
+                // the start circle (icon), then blocks or dots that light up to the level
+                float cy = t.centerY(), gap = Math.max(3 * d, thick * 0.1f);
+                fillPaint(p, t, fill);
+                c.drawCircle(t.left + thick / 2f, cy, thick / 2f, p);
+                float from = t.left + thick + gap, room = t.right - from;
+                boolean dots = l.shape == SHAPE_DOTS;
+                float step = dots ? thick * 0.55f : thick * 0.6f;
+                int n = Math.max(3, (int) ((room + gap) / step));
+                float seg = dots ? 0 : (room - gap * (n - 1)) / n;
+                int lit = Math.round(f * n);
+                int off = trackColor != 0 ? trackColor : (dark ? 0x40FFFFFF : 0x26000000);
+                for (int i = 0; i < n; i++) {
+                    if (i < lit) fillPaint(p, t, fill); else { p.setShader(null); p.setColor(off); }
+                    if (dots) {
+                        float cx = from + (room / n) * (i + 0.5f);
+                        c.drawCircle(cx, cy, thick * 0.17f, p);
+                    } else {
+                        float x = from + i * (seg + gap), hh = thick * 0.36f, r = Math.min(4 * d, Math.min(seg, hh * 2) / 2f);
+                        c.drawRoundRect(new RectF(x, cy - hh, x + seg, cy + hh), r, r, p);
+                    }
+                }
+                break;
+            }
+            case SHAPE_OUTLINE: {
+                float sw = Math.max(2 * d, thick * 0.06f), half = thick / 2f;
+                Paint o = new Paint(Paint.ANTI_ALIAS_FLAG); o.setStyle(Paint.Style.STROKE); o.setStrokeWidth(sw);
+                o.setColor(trackColor != 0 ? (trackColor | 0x80000000) : (dark ? 0x99FFFFFF : 0x80000000));
+                RectF in = new RectF(t); in.inset(sw / 2f, sw / 2f);
+                c.drawRoundRect(in, half, half, o);
+                RectF fr = new RectF(t.left, t.top, t.left + len, t.bottom); fr.inset(sw * 1.75f, sw * 1.75f);
+                float fh = fr.height() / 2f;
+                fillPaint(p, t, fill); c.drawRoundRect(fr, fh, fh, p);
+                break;
+            }
+            default: {
+                if (trackColor != 0) {
+                    path.addRoundRect(t, radii, Path.Direction.CW);
+                    p.setColor(trackColor);
+                    c.drawPath(path, p);
+                }
+                path.reset();
+                path.addRoundRect(new RectF(t.left, t.top, t.left + len, t.bottom), radii, Path.Direction.CW);
+                fillPaint(p, t, fill);
+                c.drawPath(path, p);
+                if (l.shape == SHAPE_NOTCHED) {
+                    // notches every tenth of the way, cut through track and fill
+                    Paint n = new Paint(Paint.ANTI_ALIAS_FLAG); n.setColor(dark ? 0x59000000 : 0x40FFFFFF);
+                    float w = Math.max(1.5f * d, thick * 0.04f);
+                    for (int i = 1; i < 10; i++) {
+                        float x = t.left + thick + (t.width() - thick) * i / 10f;
+                        c.drawRect(x - w / 2, t.top + thick * 0.3f, x + w / 2, t.bottom - thick * 0.3f, n);
+                    }
+                }
+            }
         }
-        float len = com.hammad.redmagictweaks.xposed.QsArt.oneUi8FillLength(t, fraction);
-        path.reset();
-        path.addRoundRect(new RectF(t.left, t.top, t.left + len, t.bottom), radii, Path.Direction.CW);
-        if (fill[0] != fill[1]) { p.setColor(0xFFFFFFFF); p.setShader(new LinearGradient(t.left, 0, t.right, 0, fill[0], fill[1], Shader.TileMode.CLAMP)); }   // opaque paint: its alpha would fade the shader
-        else p.setColor(fill[0]);
-        c.drawPath(path, p);
         p.setShader(null);
         if (!enabled) {
             path.reset();
-            path.addRoundRect(t, radii, Path.Direction.CW);
+            path.addRoundRect(t, thick / 2f, thick / 2f, Path.Direction.CW);
             p.setColor(dark ? 0x66000000 : 0x55FFFFFF);
             c.drawPath(path, p);
         }
         if (l.level) {
-            float f = Float.isFinite(fraction) ? Math.max(0f, Math.min(1f, fraction)) : 0f;
             float cx = t.right - thick / 2f, cy = t.centerY();
             boolean onFill = len >= t.width() - thick * 0.75f;
             Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -187,6 +255,22 @@ public final class OneUiVolumeArt {
             c.restoreToCount(save);
         }
         return len;
+    }
+
+    /** Fill colour or gradient (bottom to top of the whole bar); the paint stays opaque so a gradient is not faded. */
+    private static void fillPaint(Paint p, RectF t, int[] fill) {
+        if (fill[0] != fill[1]) { p.setColor(0xFFFFFFFF); p.setShader(new LinearGradient(t.left, 0, t.right, 0, fill[0], fill[1], Shader.TileMode.CLAMP)); }
+        else { p.setShader(null); p.setColor(fill[0]); }
+    }
+
+    /** A bar with pointed ends (a long hexagon), slightly softened. */
+    private static void pointed(Path path, RectF r) {
+        float a = Math.min(r.height() / 2f, r.width() / 2f), cy = r.centerY();
+        path.moveTo(r.left, cy);
+        path.lineTo(r.left + a, r.top); path.lineTo(r.right - a, r.top);
+        path.lineTo(r.right, cy);
+        path.lineTo(r.right - a, r.bottom); path.lineTo(r.left + a, r.bottom);
+        path.close();
     }
 
     /**
@@ -220,7 +304,8 @@ public final class OneUiVolumeArt {
         Path path = new Path();
         if (pr == null) path.addRoundRect(pill, col / 2, col / 2, Path.Direction.CW); else path.addRoundRect(pill, pr, Path.Direction.CW);
         c.drawPath(path, p);
-        RectF ring = new RectF(cx - col / 2, pill.bottom + 6, cx + col / 2, pill.bottom + 6 + col);
+        float ringTop = pill.bottom + 6 + Math.max(0, (56 - col) / 2f);   // RedMagic's 56 dp button, drawn as wide as the panel
+        RectF ring = new RectF(cx - col / 2, ringTop, cx + col / 2, ringTop + col);
         path.reset();
         if (pr == null) path.addOval(ring, Path.Direction.CW); else path.addRoundRect(ring, pr, Path.Direction.CW);
         c.drawPath(path, p);

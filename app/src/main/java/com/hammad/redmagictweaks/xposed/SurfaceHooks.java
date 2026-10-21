@@ -326,9 +326,14 @@ final class SurfaceHooks {
         Method rects = bg == null ? null : H.find(bg, "setRects", RectF.class, RectF.class, RectF.class);
         if (rects != null) {
             H.hook(rects, new XC_MethodHook() {
+                @Override protected void beforeHookedMethod(MethodHookParam p) {
+                    S cur = s();
+                    if (!cur.volOneUi) return;
+                    try { volNarrow(p.args, cur.one); } catch (Throwable t) { Lx.e("Surface: volume panel width", t); }
+                }
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     S cur = s();
-                    if (p.hasThrowable() || !cur.volOneUi || cur.one.shape == 0) return;
+                    if (p.hasThrowable() || !cur.volOneUi || OneUiVolumeArt.panelRadii(cur.one, 40, 1f) == null) return;
                     try { volPanelShape(p.thisObject, cur.one); } catch (Throwable t) { Lx.e("Surface: volume panel shape", t); }
                 }
             });
@@ -412,7 +417,11 @@ final class SurfaceHooks {
     private static final Map<View, int[]> volStockLp = new WeakHashMap<>();
     private static final int KEEP = Integer.MIN_VALUE;
 
-    /** Before updateRowsWidth: the collapsed column (and the dialog widths ZTE derives from it) for the chosen width. */
+    /**
+     * Before updateRowsWidth. RedMagic sizes the collapsed column (56 dp) itself and its rows only stay centred at that
+     * width, so the column keeps its stock width and the narrower One UI panel is drawn instead (volNarrow). This only
+     * puts the stock width back where an older build changed it.
+     */
     private static void volFields(Object dlg) {
         int[] st = volStockFields.get(dlg);
         if (st == null) {
@@ -421,18 +430,33 @@ final class SurfaceHooks {
             if (st[0] <= 0) return;
             volStockFields.put(dlg, st);
         }
-        S cur = s();
-        int col = st[0];
-        if (cur.volOneUi) {
-            Object dv = XposedHelpers.getObjectField(dlg, "mDialogView");
-            float d = dv instanceof View ? density((View) dv) : 3f;
-            col = Math.min(st[0], Math.round(OneUiVolumeArt.columnDp(cur.one) * d));
+        if (XposedHelpers.getIntField(dlg, "mRowWidth") == st[0]) return;
+        XposedHelpers.setIntField(dlg, "mRowWidth", st[0]);
+        XposedHelpers.setIntField(dlg, "mDialogMiniWidthWithPadding", st[1]);
+        XposedHelpers.setIntField(dlg, "mDialogMiniWidthWithPaddingTowPanel", st[2]);
+    }
+
+    /** Display density of the volume dialog (the background drawable has no view of its own). */
+    private static volatile float volDensity;
+
+    /**
+     * Before ClipRectsDrawable.setRects: the blurred column (and the second column) is drawn as wide as the chosen panel
+     * width, centred on RedMagic's column, and the ringer button as a circle of that width. The wide expanded panel
+     * (wider than 64 dp) is left alone.
+     */
+    private static void volNarrow(Object[] args, OneUiVolumeArt.Look l) {
+        float d = volDensity > 0 ? volDensity : android.content.res.Resources.getSystem().getDisplayMetrics().density;
+        float col = OneUiVolumeArt.columnDp(l) * d;
+        for (int i = 0; i < 3 && i < args.length; i++) {
+            if (!(args[i] instanceof RectF)) continue;
+            RectF r = (RectF) args[i];
+            if (r.isEmpty() || r.width() > 64 * d || r.width() <= col) continue;
+            RectF n = new RectF(r);
+            float dx = (r.width() - col) / 2f;
+            n.left += dx; n.right -= dx;
+            if (i == 2 && r.height() <= 64 * d) { float dy = Math.max(0, (r.height() - col) / 2f); n.top += dy; n.bottom -= dy; }
+            args[i] = n;
         }
-        int delta = col - st[0];
-        if (XposedHelpers.getIntField(dlg, "mRowWidth") == col) return;
-        XposedHelpers.setIntField(dlg, "mRowWidth", col);
-        XposedHelpers.setIntField(dlg, "mDialogMiniWidthWithPadding", st[1] + delta);
-        XposedHelpers.setIntField(dlg, "mDialogMiniWidthWithPaddingTowPanel", st[2] + 2 * delta);
     }
 
     /**
@@ -459,7 +483,6 @@ final class SurfaceHooks {
             int room = dv.getResources().getDisplayMetrics().heightPixels - stockH - dp(dv, 64);
             extra = Math.max(0, Math.min(extra, room));
         }
-        int minCol = on ? col : -1;
         StringBuilder geo = new StringBuilder();
         boolean inside = on && OneUiVolumeArt.iconInside(cur.one);
         Object list = XposedHelpers.getObjectField(dlg, "mRows");
@@ -481,20 +504,8 @@ final class SurfaceHooks {
                 int slider = on && fst[1] > 0 && sst[0] > 0 ? fst[1] + extra + fold - dp(dv, 6) - sst[0] : 0;
                 fit(sb, on ? slider : 0, KEEP, -1, -1, 0);
                 fit(frame, KEEP, extra + fold, -1, -1, 0);
-                // ZTE sizes the column in the default dpi, the row's own views in the current one: size them to the column
-                int[] ist0 = stockLp(inner);
-                fit(inner, on && ist0[0] > 0 ? col - ist0[0] : 0, extra, -1, -1, 0);
-                if (inner.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams) {
-                    android.widget.FrameLayout.LayoutParams flp = (android.widget.FrameLayout.LayoutParams) inner.getLayoutParams();
-                    if (flp.gravity != android.view.Gravity.CENTER) { flp.gravity = android.view.Gravity.CENTER; inner.setLayoutParams(flp); }
-                }
-                // the row itself is as wide as the column (a wider row sits left-aligned in the column and looks shifted right)
+                fit(inner, KEEP, extra, -1, -1, 0);
                 View root = viewField(row, "view");
-                if (on && !expanded && root != null && root.getLayoutParams() != null && root.getLayoutParams().width != col) {
-                    ViewGroup.LayoutParams rlp = root.getLayoutParams();
-                    rlp.width = col;
-                    root.setLayoutParams(rlp);
-                }
                 if (on && sb.isShown()) geo.append(" row[root ").append(root == null ? -1 : root.getWidth()).append('/').append(root == null || root.getLayoutParams() == null ? -9 : root.getLayoutParams().width)
                         .append(" inner ").append(inner.getLeft()).append('+').append(inner.getWidth()).append(" frame ").append(frame.getWidth()).append('x').append(frame.getHeight())
                         .append(" slider ").append(sb.getLeft()).append(',').append(sb.getTop()).append(' ').append(sb.getWidth()).append('x').append(sb.getHeight()).append(']');
@@ -504,20 +515,14 @@ final class SurfaceHooks {
             }
         }
         View mainV = viewField(dlg, "mDialogMain"), rows = viewField(dlg, "mDialogRowsView"), rows2 = viewField(dlg, "mDialogRowsView2");
-        fit(mainV, KEEP, extra, minCol, -1, 0);
-        fit(rows, KEEP, KEEP, minCol, -1, 0);
-        fit(rows2, KEEP, extra, minCol, -1, 0);
+        // heights only; widths stay RedMagic's (older builds changed minimum widths and the buttons: put those back)
+        fit(mainV, KEEP, extra, -1, -1, 0);
+        fit(rows, KEEP, KEEP, -1, -1, 0);
+        fit(rows2, KEEP, extra, -1, -1, 0);
         fit(dv, KEEP, extra, -1, -1, 0);
-        View expand = viewField(dlg, "mExpandButton");
-        if (expand != null && expand.getLayoutParams() != null) { int[] est = stockLp(expand); fit(expand, on && est[0] > 0 ? col - est[0] : 0, KEEP, -1, -1, 0); }
-        View ringer = viewField(dlg, "mRinger");
-        if (ringer != null && ringer.getLayoutParams() != null) {
-            int[] rst = stockLp(ringer);
-            if (on && !expanded) fit(ringer, KEEP, rst[1] > 0 ? col - rst[1] : 0, col, col, 0);
-            else fit(ringer, KEEP, 0, -1, -1, 0);
-        }
-        // ConstraintLayout keeps its own minimum width (android:minWidth of the column), not the View one
-        if (mainV != null) { try { XposedHelpers.callMethod(mainV, "setMinWidth", on ? col : stockLp(mainV)[2]); } catch (Throwable ignored) { } }
+        fit(viewField(dlg, "mExpandButton"), 0, KEEP, -1, -1, 0);
+        fit(viewField(dlg, "mRinger"), KEEP, 0, -1, -1, 0);
+        volDensity = density(dv);
         if (on) {
             geo.insert(0, "Surface: volume geometry d=" + density(dv) + " col=" + col + " stockCol=" + stockCol + " expanded=" + expanded + " extra=" + extra
                     + " rows=" + (rows == null ? -1 : rows.getWidth()) + " main=" + (mainV == null ? -1 : mainV.getWidth()) + " dialog=" + dv.getWidth());
