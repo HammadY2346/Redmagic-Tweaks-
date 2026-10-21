@@ -95,6 +95,31 @@ public class ScreenshotTest {
 
         Activity about = Robolectric.buildActivity(AboutActivity.class).setup().get();
         snap(about.getWindow().getDecorView(), new File(out, "screen-" + BuildConfig.FLAVOR + "-7-about.png"));
+
+        // checks (not for the README): the totals, the volume page in Detailed mode with a One UI panel option, the
+        // colour sheet, the fingerprint page
+        StringBuilder totals = new StringBuilder("preview totals: all=" + Catalog.total(ctx));
+        for (Catalog.Category c : Catalog.all()) totals.append(' ').append(c.id).append('=').append(Catalog.total(c));
+        System.out.println(totals);
+        UiPrefs.setDetailed(ctx, true);
+        Prefs.set(ctx, "vol_oneui_color", 10);
+        Prefs.set(ctx, "vol_oneui_level", true);
+        Activity vol = Robolectric.buildActivity(CategoryActivity.class,
+                new Intent(ctx, CategoryActivity.class).putExtra(CategoryActivity.EXTRA_CATEGORY, "volume")).setup().get();
+        snap(vol.getWindow().getDecorView(), new File(out, "check-" + BuildConfig.FLAVOR + "-8-volume-detailed.png"));
+        vol.findViewById(R.id.list).scrollBy(0, dp(ctx, 700));
+        snap(vol.getWindow().getDecorView(), new File(out, "check-" + BuildConfig.FLAVOR + "-9-volume-options.png"));
+        View colour = findRow(vol.findViewById(R.id.list), "Bar colour");
+        if (colour != null) {
+            colour.performClick();
+            shadowOf(Looper.getMainLooper()).idle();
+            Dialog d = ShadowDialog.getLatestDialog();
+            if (d != null) snap(d.getWindow().getDecorView(), new File(out, "check-" + BuildConfig.FLAVOR + "-10-bar-colour.png"));
+        }
+        UiPrefs.setDetailed(ctx, false);
+        Activity fp = Robolectric.buildActivity(CategoryActivity.class,
+                new Intent(ctx, CategoryActivity.class).putExtra(CategoryActivity.EXTRA_CATEGORY, "fingerprint")).setup().get();
+        snap(fp.getWindow().getDecorView(), new File(out, "check-" + BuildConfig.FLAVOR + "-11-fingerprint.png"));
     }
 
     private static View findRow(View root, String title) {

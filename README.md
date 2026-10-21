@@ -1,11 +1,11 @@
 # RedMagic Tweaks
 
 An LSPosed module and settings app for **REDMAGIC** phones. It gives RedMagic OS a Samsung **One UI 8** look and adds
-about 270 tweaks: status bar, Control Center, lock screen, notifications, volume and power menu, the stock launcher and
+279 tweaks: status bar, Control Center, lock screen, notifications, volume and power menu, the stock launcher and
 its recent apps, Game Space, charging and fingerprint animations, boot animations and system extras.
 
-Every tweak is **off** until you turn it on, every visual option shows a **preview before you apply it**, and a
-**fail-safe** brings the phone back to stock if something goes wrong.
+Every tweak is **off** until you turn it on, every visual option shows a **preview before you apply it**, Detailed mode
+explains every setting in place, and a **fail-safe** brings the phone back to stock if something goes wrong.
 
 > Not affiliated with nubia, ZTE or REDMAGIC. REDMAGIC is their trademark.
 
@@ -18,13 +18,14 @@ Every tweak is **off** until you turn it on, every visual option shows a **previ
 
 <p align="center">
   <img src="docs/images/app-1-home.png" width="24%" alt="Home: status, Safe mode, search, looks">
-  <img src="docs/images/app-2-home-categories.png" width="24%" alt="The 12 categories">
+  <img src="docs/images/app-2-home-categories.png" width="24%" alt="The 13 categories">
   <img src="docs/images/app-3-status-bar.png" width="24%" alt="Status bar category with its live preview">
   <img src="docs/images/app-4-quick-panel.png" width="24%" alt="Quick panel category">
 </p>
 <p align="center">
   <img src="docs/images/app-5-home-and-recents.png" width="24%" alt="Home, drawer and recents category">
   <img src="docs/images/app-6-option-sheet.png" width="24%" alt="Choosing a recent apps style with a preview">
+  <img src="docs/images/app-8-volume-detailed.png" width="24%" alt="Volume and power in Detailed mode: One UI 8 volume panel options">
   <img src="docs/images/app-7-about.png" width="24%" alt="About and credits">
 </p>
 
@@ -58,8 +59,9 @@ Every tweak is **off** until you turn it on, every visual option shows a **previ
 | **Status bar** | Clock fonts, size, colour, seconds and date · battery shapes and readouts · 16 icon packs including One UI 8 · Wi-Fi and signal styles · network speed · notification icon limit and "+N" count |
 | **Quick panel** | Split shade with a One UI 8 Control Center: pills, labelled round tiles, vertical sliders, columns, gaps · classic panel grids, tile shapes and finishes |
 | **Notifications** | One UI style opaque cards, corners and opacity · no automatic heads-up · keep after unlock · original app icons |
-| **Lock screen & AOD** | One UI clock faces, widgets and shortcuts · hide widgets and hints · double-tap to sleep · AOD seconds and date · fingerprint icons and animations |
-| **Volume & power** | One UI 8 volume panel and power menu · slider styles · no high-volume warning · volume boost · volume in Do Not Disturb |
+| **Lock screen & AOD** | One UI clock faces, widgets and shortcuts · hide widgets and hints · double-tap to sleep · AOD seconds and date |
+| **Fingerprint** | Unlock animations (stock, collab and originals) · import your own frames · idle icon styles, colours and size · collaboration styles |
+| **Volume & power** | One UI 8 volume panel with its own width, height, shape, colours and gradients, icon place and level number · One UI 8 power menu with button size, shape, colours and labels · slider styles · no high-volume warning · volume boost · volume in Do Not Disturb |
 | **Charging & battery** | Charging animations (stock, collab and four originals) · import your own frames · charging readout on the lock screen · ultra power saving · charge separation |
 | **Display & performance** | Auto refresh rate up to 165 Hz · force refresh rate per app · screen timeout 30 min / never · small windows for every app |
 | **Home, drawer & recents** | Horizontal paged app drawer with your own order and folders · grid, dock and labels · **recent apps styles: One UI 8, carousel, stack, cover flow, grid** |

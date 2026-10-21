@@ -22,6 +22,7 @@ import android.widget.SeekBar;
 import com.hammad.redmagictweaks.SurfaceFeatures;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -54,13 +55,22 @@ final class SurfaceHooks {
     private static final String VOLUME_ROW = VOLUME_BASE + "$VolumeRow";
     private static final String VOLUME_SLIDER = "com.zte.mifavor.widget.ColorSeekBarZTE";
     private static final String POWER_DIALOG = "com.zte.feature.globalaction.MfvGlobalActionsDialog$MFVActionsDialog";
+    private static final String VOLUME_BG = "com.zte.mifavor.views.ClipRectsDrawable";
 
     // ------------------------------------------------------------------------------------------- settings snapshot
 
     static final class S {
         int notifStyle, notifOpacity, notifCorner, iconLimit, volume, power;
         boolean noAutoHeadsUp, overflowCount, volOneUi, pwrOneUi;
+        OneUiVolumeArt.Look one = OneUiVolumeArt.look(new OneUiVolumeArt.Src() {
+            @Override public int choice(String key) { return 0; }
+            @Override public boolean on(String key) { return false; }
+        });
     }
+    private static final OneUiVolumeArt.Src CFG = new OneUiVolumeArt.Src() {
+        @Override public int choice(String key) { return Cfg.choice(key); }
+        @Override public boolean on(String key) { return Cfg.on(key); }
+    };
     private static volatile S snap = new S();
     private static volatile long snapAt;
 
@@ -78,6 +88,7 @@ final class SurfaceHooks {
             n.power = clamp(Cfg.choice(SurfaceFeatures.PWR_STYLE), SurfaceArt.CARD_STYLES.length - 1);
             n.volOneUi = Cfg.on(SurfaceFeatures.VOL_ONEUI);
             n.pwrOneUi = Cfg.on(SurfaceFeatures.PWR_ONEUI);
+            n.one = OneUiVolumeArt.look(CFG);
             S old = snap;
             snap = n; snapAt = now;
             if (old.iconLimit != n.iconLimit || old.overflowCount != n.overflowCount) refreshIcons();
@@ -295,6 +306,32 @@ final class SurfaceHooks {
                 } catch (Throwable t) { Lx.e("Surface: volume draw", t); }
             }
         });
+        // One UI 8 panel size: the column width ZTE uses for collapsed rows, then the views it does not size itself
+        Method rowsWidth = H.find(dialog, "updateRowsWidth");
+        if (rowsWidth != null) {
+            H.hook(rowsWidth, new XC_MethodHook() {
+                @Override protected void beforeHookedMethod(MethodHookParam p) {
+                    if (!main()) return;
+                    try { volFields(p.thisObject); } catch (Throwable t) { Lx.e("Surface: volume column", t); }
+                }
+                @Override protected void afterHookedMethod(MethodHookParam p) {
+                    if (p.hasThrowable() || !main()) return;
+                    try { volLayout(p.thisObject); } catch (Throwable t) { Lx.e("Surface: volume layout", t); }
+                }
+            });
+        } else Lx.w("Surface: updateRowsWidth missing, One UI volume size stays stock");
+        // the blurred column and ringer button take the bar's shape
+        Class<?> bg = H.cls(cl, VOLUME_BG);
+        Method rects = bg == null ? null : H.find(bg, "setRects", RectF.class, RectF.class, RectF.class);
+        if (rects != null) {
+            H.hook(rects, new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam p) {
+                    S cur = s();
+                    if (p.hasThrowable() || !cur.volOneUi || cur.one.shape == 0) return;
+                    try { volPanelShape(p.thisObject, cur.one); } catch (Throwable t) { Lx.e("Surface: volume panel shape", t); }
+                }
+            });
+        }
         Lx.i("Surface: volume hooks ready");
     }
     private static void scanRows(Object dialog) {
@@ -331,14 +368,15 @@ final class SurfaceHooks {
     private static int dp(View v, float dp) { return Math.round(dp * density(v)); }
 
     /**
-     * ZTE's row (volume_dialog_row_mfv): a 20 dp ColorSeekBarZTE rotated 270 degrees in a 56 dp column, a thumb dot, and
-     * the stream icon under it. One UI 8: the slider is as thick as the column (the blurred pill around it), so its
-     * thickness grows to the column width minus a 2 dp rim; corners fully round. The cached track path is dropped.
+     * ZTE's row (volume_dialog_row_mfv): a ColorSeekBarZTE (20 dp thick; its measured height is its track) rotated 270
+     * degrees in a 56 dp column, a thumb dot, and the stream icon under it. One UI 8: the bar is as thick as the chosen
+     * width (the column is 4 dp wider, see volFields), corners per the chosen shape. The cached track path is dropped.
      */
     private static void oneUiGeometry(SeekBar sb) {
         View frame = parentView(sb);
+        OneUiVolumeArt.Look l = s().one;
         int column = frame != null && frame.getWidth() > 0 ? frame.getWidth() : dp(sb, 56);
-        int want = Math.max(dp(sb, 28), Math.min(column, dp(sb, 56)) - dp(sb, 4));
+        int want = Math.max(dp(sb, 24), Math.min(dp(sb, OneUiVolumeArt.thickDp(l)), column - dp(sb, 4)));
         int cur = XposedHelpers.getIntField(sb, "mTrackSize");
         if (!volStockSize.containsKey(sb)) {
             volStockSize.put(sb, new int[]{cur});
@@ -347,8 +385,7 @@ final class SurfaceHooks {
         }
         if (cur == want) return;
         XposedHelpers.setIntField(sb, "mTrackSize", want);
-        float[] radii = new float[8]; Arrays.fill(radii, want / 2f);
-        XposedHelpers.setObjectField(sb, "mRadii", radii);
+        XposedHelpers.setObjectField(sb, "mRadii", OneUiVolumeArt.barRadii(l, want, density(sb)));
         XposedHelpers.setObjectField(sb, "mPath", null);
         sb.requestLayout(); sb.invalidate();
     }
@@ -363,13 +400,172 @@ final class SurfaceHooks {
         }
         Object row = entry == null ? null : entry.row.get();
         Object icon = row == null ? null : XposedHelpers.getObjectField(row, "icon");
-        if (icon instanceof View && volMovedIcons.remove(icon) != null) ((View) icon).setTranslationY(0f);
+        if (icon instanceof ImageView && volMovedIcons.remove(icon) != null) { ((View) icon).setTranslationY(0f); ((ImageView) icon).setImageTintList(null); }
+    }
+
+    // --- panel size -------------------------------------------------------------------------------------------------
+
+    /** dialog -> stock {mRowWidth, mDialogMiniWidthWithPadding, mDialogMiniWidthWithPaddingTowPanel} */
+    private static final Map<Object, int[]> volStockFields = new WeakHashMap<>();
+    /** view -> stock {layout width, layout height, min width, min height, top margin} */
+    private static final Map<View, int[]> volStockLp = new WeakHashMap<>();
+    private static final int KEEP = Integer.MIN_VALUE;
+
+    /** Before updateRowsWidth: the collapsed column (and the dialog widths ZTE derives from it) for the chosen width. */
+    private static void volFields(Object dlg) {
+        int[] st = volStockFields.get(dlg);
+        if (st == null) {
+            st = new int[]{XposedHelpers.getIntField(dlg, "mRowWidth"), XposedHelpers.getIntField(dlg, "mDialogMiniWidthWithPadding"),
+                    XposedHelpers.getIntField(dlg, "mDialogMiniWidthWithPaddingTowPanel")};
+            if (st[0] <= 0) return;
+            volStockFields.put(dlg, st);
+        }
+        S cur = s();
+        int col = st[0];
+        if (cur.volOneUi) {
+            Object dv = XposedHelpers.getObjectField(dlg, "mDialogView");
+            float d = dv instanceof View ? density((View) dv) : 3f;
+            col = Math.min(st[0], Math.round(OneUiVolumeArt.columnDp(cur.one) * d));
+        }
+        int delta = col - st[0];
+        if (XposedHelpers.getIntField(dlg, "mRowWidth") == col) return;
+        XposedHelpers.setIntField(dlg, "mRowWidth", col);
+        XposedHelpers.setIntField(dlg, "mDialogMiniWidthWithPadding", st[1] + delta);
+        XposedHelpers.setIntField(dlg, "mDialogMiniWidthWithPaddingTowPanel", st[2] + 2 * delta);
     }
 
     /**
-     * Track (translucent, so the blur shows) and a light fill that is a circle at 0 % and the whole pill at 100 %, from
-     * the start of the slider (the bottom, as the bar is rotated 270 degrees). The row icon is moved into that circle
-     * and tinted dark. Returns false (stock drawing) when the view is not the shape we expect.
+     * After updateRowsWidth: makes the panel taller (the slider, its frame, the row, the column, the second column and
+     * the dialog by the same amount), lets the slider fill its frame, folds the empty icon slot into the bar when the icon
+     * sits inside it, and narrows the expand button and (collapsed) the ringer button to the column. Everything goes
+     * back to stock when the One UI panel is off.
+     */
+    private static void volLayout(Object dlg) {
+        S cur = s();
+        boolean on = cur.volOneUi;
+        Object dvo = XposedHelpers.getObjectField(dlg, "mDialogView");
+        if (!(dvo instanceof View)) return;
+        View dv = (View) dvo;
+        int[] stF = volStockFields.get(dlg);
+        int stockCol = stF != null ? stF[0] : dp(dv, 56);
+        int col = on ? XposedHelpers.getIntField(dlg, "mRowWidth") : stockCol;
+        boolean expanded = XposedHelpers.getBooleanField(dlg, "mExpanded");
+        int extra = 0;
+        if (on) {
+            extra = dp(dv, OneUiVolumeArt.extraDp(cur.one));
+            int stockH = volStockLp.containsKey(dv) ? volStockLp.get(dv)[1] : dv.getLayoutParams() != null ? dv.getLayoutParams().height : -1;
+            if (stockH <= 0) stockH = dp(dv, 326);
+            int room = dv.getResources().getDisplayMetrics().heightPixels - stockH - dp(dv, 64);
+            extra = Math.max(0, Math.min(extra, room));
+        }
+        int dCol = col - stockCol, minCol = on ? col : -1;
+        boolean inside = on && OneUiVolumeArt.iconInside(cur.one);
+        Object list = XposedHelpers.getObjectField(dlg, "mRows");
+        if (list instanceof List && ((List<?>) list).size() <= 32) {
+            for (Object row : (List<?>) list) {
+                if (row == null) continue;
+                Object so = XposedHelpers.getObjectField(row, "slider"), io = XposedHelpers.getObjectField(row, "icon");
+                if (!(so instanceof SeekBar) || !so.getClass().getName().equals(VOLUME_SLIDER)) continue;
+                View sb = (View) so, frame = parentView(sb), inner = frame == null ? null : parentView(frame);
+                if (frame == null || inner == null) continue;
+                View icon = io instanceof View && parentView((View) io) == inner ? (View) io : null;
+                int fold = 0;
+                if (inside && icon != null && icon.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                    int[] ist = stockLp(icon);
+                    ViewGroup.MarginLayoutParams ilp = (ViewGroup.MarginLayoutParams) icon.getLayoutParams();
+                    fold = Math.max(0, (ist[1] > 0 ? ist[1] : dp(dv, 24)) + ilp.bottomMargin - dp(dv, 6));
+                }
+                int[] fst = stockLp(frame), sst = stockLp(sb);
+                int slider = on && fst[1] > 0 && sst[0] > 0 ? fst[1] + extra + fold - dp(dv, 6) - sst[0] : 0;
+                fit(sb, on ? slider : 0, KEEP, -1, -1, 0);
+                fit(frame, KEEP, extra + fold, -1, -1, 0);
+                fit(inner, dCol, extra, -1, -1, 0);
+                if (icon != null) fit(icon, KEEP, KEEP, -1, -1, -fold);
+                if (!on && icon != null) { icon.setTranslationY(0f); if (volMovedIcons.remove(icon) != null && icon instanceof ImageView) ((ImageView) icon).setImageTintList(null); }
+                else if (on && !inside && icon != null && volMovedIcons.remove(icon) != null) { icon.setTranslationY(0f); if (icon instanceof ImageView) ((ImageView) icon).setImageTintList(null); }
+            }
+        }
+        View mainV = viewField(dlg, "mDialogMain"), rows = viewField(dlg, "mDialogRowsView"), rows2 = viewField(dlg, "mDialogRowsView2");
+        fit(mainV, KEEP, extra, minCol, -1, 0);
+        fit(rows, KEEP, KEEP, minCol, -1, 0);
+        fit(rows2, KEEP, extra, minCol, -1, 0);
+        fit(dv, KEEP, extra, -1, -1, 0);
+        fit(viewField(dlg, "mExpandButton"), dCol, KEEP, -1, -1, 0);
+        View ringer = viewField(dlg, "mRinger");
+        if (on && !expanded) fit(ringer, KEEP, dCol, col, col, 0);
+        else fit(ringer, KEEP, 0, -1, -1, 0);
+    }
+
+    private static View viewField(Object o, String name) {
+        try { Object v = XposedHelpers.getObjectField(o, name); return v instanceof View ? (View) v : null; } catch (Throwable t) { return null; }
+    }
+
+    private static int[] stockLp(View v) {
+        int[] st = volStockLp.get(v);
+        if (st == null) {
+            ViewGroup.LayoutParams lp = v.getLayoutParams();
+            st = new int[]{lp == null ? 0 : lp.width, lp == null ? 0 : lp.height, v.getMinimumWidth(), v.getMinimumHeight(),
+                    lp instanceof ViewGroup.MarginLayoutParams ? ((ViewGroup.MarginLayoutParams) lp).topMargin : 0};
+            volStockLp.put(v, st);
+        }
+        return st;
+    }
+
+    /**
+     * Sets a fixed layout width / height to stock + dw / dh (KEEP = leave it; a size ZTE sets itself is never touched),
+     * the minimum width / height to minW / minH (-1 = stock) and the top margin to stock + dTop. A view that was never
+     * changed and needs no change is left alone.
+     */
+    private static void fit(View v, int dw, int dh, int minW, int minH, int dTop) {
+        if (v == null || v.getLayoutParams() == null) return;
+        boolean wants = (dw != KEEP && dw != 0) || (dh != KEEP && dh != 0) || minW >= 0 || minH >= 0 || dTop != 0;
+        if (!wants && !volStockLp.containsKey(v)) return;
+        int[] st = stockLp(v);
+        ViewGroup.LayoutParams lp = v.getLayoutParams();
+        boolean changed = false;
+        if (dw != KEEP && st[0] > 0) { int w = Math.max(1, st[0] + dw); if (lp.width != w) { lp.width = w; changed = true; } }
+        if (dh != KEEP && st[1] > 0) { int h = Math.max(1, st[1] + dh); if (lp.height != h) { lp.height = h; changed = true; } }
+        int mw = minW >= 0 ? minW : st[2], mh = minH >= 0 ? minH : st[3];
+        if (v.getMinimumWidth() != mw) { v.setMinimumWidth(mw); changed = true; }
+        if (v.getMinimumHeight() != mh) { v.setMinimumHeight(mh); changed = true; }
+        if (lp instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams m = (ViewGroup.MarginLayoutParams) lp;
+            if (m.topMargin != st[4] + dTop) { m.topMargin = st[4] + dTop; changed = true; }
+        }
+        if (changed) v.setLayoutParams(lp);
+    }
+
+    /** The blurred column, second column and ringer button get the bar's corners (the wide expanded panel stays stock). */
+    private static void volPanelShape(Object drawable, OneUiVolumeArt.Look l) {
+        float d = android.content.res.Resources.getSystem().getDisplayMetrics().density;
+        Path all = (Path) XposedHelpers.getObjectField(drawable, "path");
+        String[][] parts = {{"rowsRect", "rowsPath"}, {"rows2Rect", "rows2Path"}, {"ringerRect", "ringerPath"}};
+        boolean any = false;
+        for (String[] part : parts) {
+            RectF r = (RectF) XposedHelpers.getObjectField(drawable, part[0]);
+            if (r == null || r.isEmpty() || r.width() > 64 * d) continue;
+            float[] radii = OneUiVolumeArt.panelRadii(l, r.width(), d);
+            if (radii == null) return;
+            Path p = (Path) XposedHelpers.getObjectField(drawable, part[1]);
+            p.reset();
+            p.addRoundRect(r, radii, Path.Direction.CW);
+            any = true;
+        }
+        if (!any || all == null) return;
+        all.reset();
+        for (String[] part : parts) {
+            RectF r = (RectF) XposedHelpers.getObjectField(drawable, part[0]);
+            if (r != null && !r.isEmpty()) all.addPath((Path) XposedHelpers.getObjectField(drawable, part[1]));
+        }
+    }
+
+    // --- drawing ----------------------------------------------------------------------------------------------------
+
+    /**
+     * Track, fill (a circle at 0 % that grows to the whole bar at 100 %, from the start of the slider: the bottom, as
+     * the bar is rotated 270 degrees), colours, shape and level number as chosen. The row icon is moved into that circle
+     * and tinted to read over the fill (or left under the bar). Returns false (stock drawing) when the view is not the
+     * shape we expect.
      */
     private static boolean drawOneUiVolume(SeekBar sb, RowEntry entry, Canvas canvas) {
         if (!volStockSize.containsKey(sb)) oneUiGeometry(sb);
@@ -379,20 +575,15 @@ final class SurfaceHooks {
         float min = XposedHelpers.getFloatField(sb, "mMin"), max = XposedHelpers.getFloatField(sb, "mMax"), progress = XposedHelpers.getFloatField(sb, "mProgress");
         float fraction = max > min ? (progress - min) / (max - min) : 0f;
         boolean dark = dark(sb);
-        RectF track = new RectF(left, top, left + length, top + thick);
-        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        float r = thick / 2f;
-        p.setColor(dark ? 0x40FFFFFF : 0x26000000);
-        canvas.drawRoundRect(track, r, r, p);
-        p.setColor(QsArt.oneUiFill(dark));
-        canvas.drawRoundRect(new RectF(left, top, left + QsArt.oneUi8FillLength(track, fraction), top + thick), r, r, p);
-        if (!sb.isEnabled()) { p.setColor(dark ? 0x66000000 : 0x55FFFFFF); canvas.drawRoundRect(track, r, r, p); }
-        placeIcon(sb, entry, thick, left);
+        OneUiVolumeArt.Look l = s().one;
+        int[] fill = OneUiVolumeArt.fill(sb.getContext(), l, dark);
+        OneUiVolumeArt.drawBar(canvas, new RectF(left, top, left + length, top + thick), fraction, l, fill, dark, sb.isEnabled(), density(sb));
+        if (OneUiVolumeArt.iconInside(l)) placeIcon(sb, entry, thick, left, OneUiVolumeArt.over(fill[0]));
         return true;
     }
 
-    /** Puts the row's stream icon (the mute button) into the start circle of the slider and tints it dark. */
-    private static void placeIcon(SeekBar sb, RowEntry entry, float thick, float left) {
+    /** Puts the row's stream icon (the mute button) into the start circle of the slider and tints it. */
+    private static void placeIcon(SeekBar sb, RowEntry entry, float thick, float left, int tint) {
         Object row = entry == null ? null : entry.row.get();
         Object o = row == null ? null : XposedHelpers.getObjectField(row, "icon");
         if (!(o instanceof ImageView)) return;
@@ -407,7 +598,6 @@ final class SurfaceHooks {
         float want = startCircle - (icon.getTop() + icon.getHeight() / 2f);
         if (Math.abs(icon.getTranslationY() - want) > 0.5f) icon.setTranslationY(want);
         volMovedIcons.put(icon, Boolean.TRUE);
-        int tint = QsArt.oneUiIconOverFill(dark(sb));
         android.content.res.ColorStateList cur = icon.getImageTintList();
         if (cur == null || cur.getDefaultColor() != tint) icon.setImageTintList(android.content.res.ColorStateList.valueOf(tint));
         if (icon.getAlpha() != 1f) icon.setAlpha(1f);
@@ -449,11 +639,13 @@ final class SurfaceHooks {
     }
     /**
      * One UI 8 power menu over ZTE's (global_dialog_simplified_*): the round ImageButtons (tag "image_button") get a solid
-     * circle, red for Power off, green for Restart, grey for the rest, at 72 dp instead of 60; the names under them
-     * (tag "text_view") are bold and a little bigger. ZTE's blur and its tap-twice confirmation stay.
+     * button in the chosen colours (One UI: red for Power off, green for Restart, grey for the rest), shape and size
+     * (72 dp instead of 60 by default); the names under them (tag "text_view") get the chosen label style. ZTE's blur
+     * and its tap-twice confirmation stay.
      */
     private static void oneUiPower(Object content) {
         if (!(content instanceof ViewGroup)) return;
+        OneUiVolumeArt.Look l = s().one;
         List<View> all = new ArrayList<>();
         collect((ViewGroup) content, all);
         for (View v : all) {
@@ -461,24 +653,27 @@ final class SurfaceHooks {
             if (v instanceof ImageButton && "image_button".equals(tag)) {
                 String id = "";
                 try { id = v.getResources().getResourceEntryName(v.getId()); } catch (Throwable ignored) { }
-                int color = id.equals("power") ? 0xFFE5484D : id.equals("reset") ? 0xFF2FA866 : id.contains("emergency") || id.contains("sos") ? 0xFFF2711C : 0xFF55555C;
-                android.graphics.drawable.GradientDrawable circle = new android.graphics.drawable.GradientDrawable();
-                circle.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-                circle.setColor(color);
-                v.setBackground(circle);
+                int[] colors = OneUiVolumeArt.pwrColors(v.getContext(), l, id);
+                int size = dp(v, OneUiVolumeArt.pwrSizeDp(l));
+                android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+                float corner = OneUiVolumeArt.pwrCorner(l, size);
+                if (corner < 0) shape.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                else { shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE); shape.setCornerRadius(corner); }
+                shape.setColor(colors[0]);
+                if (colors[2] != 0) shape.setStroke(Math.max(1, dp(v, 1)), colors[2]);
+                v.setBackground(shape);
                 v.setAlpha(1f);
-                ((ImageButton) v).setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+                ((ImageButton) v).setImageTintList(android.content.res.ColorStateList.valueOf(colors[1]));
                 ViewGroup.LayoutParams lp = v.getLayoutParams();
-                int size = dp(v, 72);
                 if (lp != null && (lp.width != size || lp.height != size)) { lp.width = size; lp.height = size; v.setLayoutParams(lp); }
-                int pad = dp(v, 20);
+                int pad = Math.round(size * 0.28f);
                 v.setPadding(pad, pad, pad, pad);
                 ((ImageButton) v).setScaleType(ImageView.ScaleType.FIT_CENTER);
             } else if (v instanceof android.widget.TextView && "text_view".equals(tag)) {
                 android.widget.TextView t = (android.widget.TextView) v;
-                t.setTypeface(Typeface.create(t.getTypeface(), Typeface.BOLD));
-                t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f);
-                t.setTextColor(Color.WHITE);
+                t.setTypeface(Typeface.create(t.getTypeface(), OneUiVolumeArt.pwrLabelBold(l) ? Typeface.BOLD : Typeface.NORMAL));
+                t.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, OneUiVolumeArt.pwrLabelSp(l));
+                t.setTextColor(OneUiVolumeArt.pwrLabelColor(l));
                 ViewGroup.LayoutParams lp = t.getLayoutParams();
                 if (lp instanceof ViewGroup.MarginLayoutParams) { ((ViewGroup.MarginLayoutParams) lp).topMargin = dp(t, 12); t.setLayoutParams(lp); }
             }

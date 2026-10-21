@@ -99,7 +99,9 @@ final class OptionSheet {
     private void drawPreview() {
         final int token = ++animToken;
         if (screenCategory != null) {
-            Looks.V with = Looks.with(Looks.live(a), item.key(), sel);
+            Looks.V picked = Looks.with(Looks.live(a), item.key(), sel);
+            String parent = Catalog.needs(item.key());
+            final Looks.V with = parent == null ? picked : Looks.with(picked, parent, Boolean.TRUE);   // show the option, even while its switch is off
             String[] s = LookPreview.screensFor(screenCategory);
             int w = Math.max(240, a.getResources().getConfiguration().screenWidthDp - 48);
             preview.setImageDrawable(s != null && s.length == 1 && LookPreview.BAR.equals(s[0]) ? LookPreview.strip(a, with, w) : LookPreview.section(a, screenCategory, with, w));

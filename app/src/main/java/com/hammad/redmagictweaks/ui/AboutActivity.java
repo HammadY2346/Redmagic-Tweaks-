@@ -27,6 +27,9 @@ public class AboutActivity extends BaseActivity {
 
     static final String REPO = "https://github.com/HammadY2346/Redmagic-Tweaks-";
 
+    /** This build's repository (a flavour with a short About names its own). */
+    static String repo() { String[] s = com.hammad.redmagictweaks.FlavorBits.shortAbout(); return s != null ? s[0] : REPO; }
+
     /** Name, what the app uses from them, link (or null). */
     static final String[][] CREDITS = {
         {"Hammad Yasin (HammadY2346)", "Author: NX789J research, the module and this app, the One UI 8 work", "https://github.com/HammadY2346"},
@@ -56,6 +59,22 @@ public class AboutActivity extends BaseActivity {
         app.addView(icon, new LinearLayout.LayoutParams(Ui.dp(this, 72), Ui.dp(this, 72)));
         app.addView(text(BuildConfig.APP_NAME, 22, R.color.text, 700, Gravity.CENTER, 8));
         app.addView(text("Version " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") · " + BuildConfig.FLAVOR + " build", 13, R.color.text_dim, 400, Gravity.CENTER, 2));
+        String[] short_ = com.hammad.redmagictweaks.FlavorBits.shortAbout();
+        if (short_ != null) {
+            // a build with a short About: its own repository and its author only
+            app.addView(text(short_[1], 13.5f, R.color.text, 400, Gravity.CENTER, 12));
+            c.addView(app);
+            c.addView(subhead("Links"));
+            LinearLayout links = new LinearLayout(this);
+            links.setOrientation(LinearLayout.VERTICAL);
+            links.addView(row("Source code", "GitHub · the original repository", short_[0], true, false));
+            links.addView(row("Open-source licences", "The fonts and libraries this app bundles", null, false, true));
+            c.addView(links);
+            c.addView(subhead("Credits"));
+            c.addView(row(short_[2], short_[1], null, true, true));
+            Ui.fonts(c);
+            return;
+        }
         app.addView(text("Made and tested on the REDMAGIC 10S Pro (NX789J) with the China firmware, RedMagic OS 11.0.11 (Android 16). "
                 + "Global and EEA firmware differ a little and are not tested yet.", 13.5f, R.color.text, 400, Gravity.CENTER, 12));
         app.addView(text("Not affiliated with nubia, ZTE or REDMAGIC. REDMAGIC is their trademark. Samsung One UI is design inspiration only: "
@@ -132,7 +151,7 @@ public class AboutActivity extends BaseActivity {
         names[0] = BuildConfig.APP_NAME + " · GNU General Public License v3.0";
         for (int i = 0; files != null && i < files.length; i++) names[i + 1] = files[i].replace(".txt", "").replace('-', ' ');
         new MaterialAlertDialogBuilder(this).setTitle("Open-source licences").setItems(names, (d, which) -> {
-            if (which == 0) { show(names[0], "This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details: https://www.gnu.org/licenses/gpl-3.0.html\n\nSource: " + REPO); return; }
+            if (which == 0) { show(names[0], "This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details: https://www.gnu.org/licenses/gpl-3.0.html\n\nSource: " + repo()); return; }
             try (InputStream in = getAssets().open("licenses/" + files[which - 1])) {
                 java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
                 byte[] buf = new byte[8192]; int n;

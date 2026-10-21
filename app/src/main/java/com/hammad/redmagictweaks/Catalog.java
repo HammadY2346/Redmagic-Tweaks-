@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * What the app shows: 12 categories plus Advanced, by what you see on the phone rather than by the app a hook patches.
+ * What the app shows: 13 categories plus Advanced, by what you see on the phone rather than by the app a hook patches.
  * The settings themselves (keys, titles, choices, descriptions) stay in the *Features sections, so saved layouts and the
  * hooks are unchanged; this class only arranges them into categories and groups, marks fine-tuning that Simple mode
  * hides, merges the two search-button switches into one choice, and says what each setting needs before it shows up
@@ -85,6 +85,29 @@ public final class Catalog {
 
     public static boolean isVirtual(String key) { return key.startsWith("ui_"); }
 
+    // ============================================================================================ settings that need a switch
+
+    /** Settings that only do something while another switch is on: setting -> the switch. */
+    private static final Map<String, String> NEEDS = new HashMap<>();
+    static {
+        for (String k : new String[]{"vol_oneui_width", "vol_oneui_height", "vol_oneui_shape", "vol_oneui_color", "vol_oneui_track", "vol_oneui_icon", "vol_oneui_level"})
+            NEEDS.put(k, "vol_oneui8");
+        for (String k : new String[]{"pwr_oneui_size", "pwr_oneui_shape", "pwr_oneui_colors", "pwr_oneui_labels"}) NEEDS.put(k, "pwr_oneui8");
+        for (String k : new String[]{"lock_oneui_face", "lock_oneui_size", "lock_oneui_position"}) NEEDS.put(k, "lock_oneui_clock");
+    }
+
+    /** The switch a setting needs, or null. */
+    public static String needs(String key) { return NEEDS.get(key); }
+
+    /** The switch this setting needs while that switch is off; null when the setting works now. */
+    public static Item blockedBy(Context c, Item it) {
+        String p = NEEDS.get(it.key());
+        return p != null && !Prefs.on(c, p) ? item(p) : null;
+    }
+
+    /** True when other settings need this switch (its row redraws them when it flips). */
+    public static boolean isParent(String key) { return NEEDS.containsValue(key); }
+
     public static int choice(Context c, Item it) {
         if (SEARCH_BUTTON.equals(it.key())) return Prefs.on(c, SEARCH_SHOW) ? 1 : Prefs.on(c, SEARCH_HIDE) ? 2 : 0;
         int v = Prefs.choice(c, it.key());
@@ -122,7 +145,8 @@ public final class Catalog {
             case "statusbar": case "sbclock": case "sbicons": case "cosmetics": return "statusbar";
             case "qs": return "quickpanel";
             case "surface": return "notifications";
-            case "lockscreen": case "fpcustom": case "theme": return "lockscreen";
+            case "fpcustom": return "fingerprint";
+            case "lockscreen": case "theme": return "lockscreen";
             case "systemui": return "charging";
             case "launcher": case "recents": return "home";
             case "game": return "gaming";
@@ -174,19 +198,24 @@ public final class Catalog {
         b.cat("notifications", "Notifications", "Card look, heads-up and what stays after unlock", R.drawable.ic_cat_notifications, false)
             .group("Cards", "notif_style", "notif_opacity", "notif_corners")
             .group("Behaviour", "notif_no_auto_headsup", "lock_keep_notifs", "fw_quiet_when_unlocked", "sb_notif_native_icon");
-        b.cat("lockscreen", "Lock screen & AOD", "One UI clock, widgets, AOD and fingerprint", R.drawable.ic_cat_lockscreen, false)
+        b.cat("lockscreen", "Lock screen & AOD", "One UI clock, widgets and always-on display", R.drawable.ic_cat_lockscreen, false)
             .group("One UI clock", "lock_oneui_clock", "lock_oneui_face", "lock_oneui_size", "lock_oneui_position", "lock_oneui_tiles", "lock_oneui_shortcuts")
             .group("Lock screen", "lock_hide_statusbar", "lock_hide_unlock_hint", "lock_hide_weather_widget", "lock_hide_alarm_widget", "lock_hide_battery_widget",
                     "lock_double_tap_sleep", "lock_double_tap_statusbar", "fw_no_72h_lock")
             .group("Always-on display", "lock_aod_seconds", "lock_aod_datetime")
-            .group("Fingerprint", "fp_unlock_all", "fpc_anim", "fpc_anim_set", "fpc_anim_interval", "fpc_anim_size", "fp_import", "fpc_icon", "fpc_icon_style",
-                    "fpc_icon_color", "fpc_icon_size", "fpc_icon_hide")
-            .group("Collaboration fingerprint styles", "fp_chisa", "fp_fighting", "fp_wuthering_waves", "fp_lty", "fp_golden_saga")
             .group("Stock clock and date", "~lock_clock_hide", "~lock_clock_size", "~lock_clock_opacity", "~lock_clock_dx", "~lock_clock_dy", "~lock_clock_rot",
                     "~lock_date_hide", "~lock_date_size", "~lock_date_opacity", "~lock_date_dx", "~lock_date_dy", "~lock_date_rot");
+        b.cat("fingerprint", "Fingerprint", "Unlock animation, icon and collab styles", R.drawable.ic_fingerprint, false)
+            .group("Unlock animation", "fpc_anim", "fpc_anim_set", "fpc_anim_interval", "fpc_anim_size", "fp_import")
+            .group("Fingerprint icon", "fpc_icon", "fpc_icon_style", "fpc_icon_color", "fpc_icon_size", "fpc_icon_hide")
+            .group("Collaboration styles", "fp_chisa", "fp_fighting", "fp_wuthering_waves", "fp_lty", "fp_golden_saga")
+            .group("Unlocking", "fp_unlock_all");
         b.cat("volume", "Volume & power", "Volume panel, power menu and volume limits", R.drawable.ic_cat_volume, false)
-            .group("Volume", "vol_oneui8", "vol_style", "sb_volume_no_warning", "fw_no_safe_volume", "fw_volume_boost", "fw_dnd_volume", "sb_volume_no_vibrate")
-            .group("Power", "pwr_oneui8", "pwr_style", "fw_power_assist");
+            .group("One UI 8 volume panel", "vol_oneui8", "vol_oneui_width", "vol_oneui_height", "vol_oneui_shape", "vol_oneui_color", "vol_oneui_track",
+                    "vol_oneui_icon", "vol_oneui_level")
+            .group("Volume", "vol_style", "sb_volume_no_warning", "fw_no_safe_volume", "fw_volume_boost", "fw_dnd_volume", "sb_volume_no_vibrate")
+            .group("One UI 8 power menu", "pwr_oneui8", "pwr_oneui_size", "pwr_oneui_shape", "pwr_oneui_colors", "pwr_oneui_labels")
+            .group("Power", "pwr_style", "fw_power_assist");
         b.cat("charging", "Charging & battery", "Charging animation, readouts and battery options", R.drawable.ic_cat_charging, false)
             .group("Charging animation", "charge_set", "charge_import", "charge_every_lock")
             .group("Lock screen readout", "lock_charge_info", "lock_charge_interval")
@@ -308,6 +337,33 @@ public final class Catalog {
             if (!v.items.isEmpty()) l.add(v);
         }
         return l;
+    }
+
+    /** What a category holds, by its group names ("Clock · Battery · Icons …"). */
+    public static String contents(Category cat) {
+        StringBuilder b = new StringBuilder();
+        for (Group g : cat.groups) {
+            if (g.title.equals("More")) continue;
+            if (b.length() > 0) b.append(" · ");
+            b.append(g.title);
+        }
+        return b.toString();
+    }
+
+    /** Settings that can be changed (switches and choices; not buttons such as imports and presets). */
+    public static boolean countable(Item it) { return it.feature.type != Features.Type.ACTION; }
+
+    public static int total(Category cat) {
+        int n = 0;
+        for (Item it : cat.items()) if (countable(it)) n++;
+        return n;
+    }
+
+    /** Every setting in the app, Advanced included. */
+    public static int total(Context c) {
+        int n = 0;
+        for (Category cat : all()) n += total(cat);
+        return n;
     }
 
     public static int changedCount(Context c, Category cat) {

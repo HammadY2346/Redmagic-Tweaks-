@@ -173,7 +173,7 @@ public final class QsFeatures {
             Rect b = getBounds();
             if (b.isEmpty()) return;
             int save = c.save();
-            try { c.translate(b.left, b.top); painter.paint(c, b.width(), b.height(), density); } catch (Throwable ignored) { } finally { c.restoreToCount(save); }
+            try { c.translate(b.left, b.top); c.clipRect(0, 0, b.width(), b.height()); painter.paint(c, b.width(), b.height(), density); } catch (Throwable ignored) { } finally { c.restoreToCount(save); }
         }
         @Override public void setAlpha(int a) { }
         @Override public void setColorFilter(ColorFilter cf) { }

@@ -142,9 +142,11 @@ public class CategoryActivity extends BaseActivity {
         MaterialToolbar tb = findViewById(R.id.toolbar);
         tb.setNavigationOnClickListener(v -> finish());
         tb.getMenu().findItem(R.id.action_advanced).setChecked(UiPrefs.advanced(this));
+        tb.getMenu().findItem(R.id.action_detailed).setChecked(UiPrefs.detailed(this));
         tb.getMenu().findItem(R.id.action_reset_page).setVisible(q == null);
         tb.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == R.id.action_advanced) { toggleAdvanced(item); return true; }
+            if (item.getItemId() == R.id.action_detailed) { toggleDetailed(item); return true; }
             if (item.getItemId() == R.id.action_reset_page) { resetPage(); return true; }
             return false;
         });
@@ -281,6 +283,20 @@ public class CategoryActivity extends BaseActivity {
         b.show();
     }
 
+    /** A setting that waits for a switch that is off: offer to turn the switch on, then carry on. */
+    private void askParent(Catalog.Item parent, Runnable then) {
+        new MaterialAlertDialogBuilder(this).setTitle("Turn on “" + parent.feature.title + "”?")
+                .setMessage("This option changes " + parent.feature.title + ", which is off, so it would do nothing yet.")
+                .setPositiveButton("Turn it on", (d, w) -> {
+                    Prefs.set(this, parent.key(), true);
+                    Pending.add(this, parent);
+                    refresh();
+                    then.run();
+                })
+                .setNeutralButton("Just set it", (d, w) -> then.run())
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
     private void choose(Catalog.Item it) {
         new OptionSheet(this, it, screens != null && LookPreview.uses(it.key()) ? cat.id : null, (value, changed) -> {
             if (!changed) return;
@@ -365,6 +381,15 @@ public class CategoryActivity extends BaseActivity {
             lp.bottomMargin = row.last ? 0 : Ui.dp(CategoryActivity.this, 1);
             v.setLayoutParams(lp);
             ((TextView) v.findViewById(R.id.title)).setText(f.title);
+            final Catalog.Item blocker = Catalog.blockedBy(CategoryActivity.this, it);
+            TextView desc = v.findViewById(R.id.desc);
+            String needLine = blocker == null ? null : "Needs “" + blocker.feature.title + "” on.";
+            boolean detailed = UiPrefs.detailed(CategoryActivity.this) && f.desc != null && !f.desc.isEmpty();
+            if (detailed || needLine != null) {
+                desc.setVisibility(View.VISIBLE);
+                desc.setText(needLine == null ? f.desc : detailed ? needLine + " " + f.desc : needLine);
+            } else desc.setVisibility(View.GONE);
+            v.setAlpha(blocker == null ? 1f : 0.55f);
             boolean changed = Catalog.changed(CategoryActivity.this, it);
             TextView value = v.findViewById(R.id.value);
             String val = valueText(it);
@@ -389,8 +414,16 @@ public class CategoryActivity extends BaseActivity {
                 sw.setOnCheckedChangeListener(null);
                 sw.setChecked(Prefs.on(CategoryActivity.this, f.key));
                 sw.setOnCheckedChangeListener((bt, checked) -> {
+                    if (blocker != null && checked && !Prefs.on(CategoryActivity.this, blocker.key())) {
+                        sw.setOnCheckedChangeListener(null); sw.setChecked(false);
+                        askParent(blocker, () -> { Prefs.set(CategoryActivity.this, f.key, true); Pending.add(CategoryActivity.this, it); refresh(); });
+                        int p = h.getBindingAdapterPosition();
+                        if (p != RecyclerView.NO_POSITION) notifyItemChanged(p);
+                        return;
+                    }
                     Prefs.set(CategoryActivity.this, f.key, checked);
                     Pending.add(CategoryActivity.this, it);
+                    if (Catalog.isParent(f.key)) { refresh(); return; }
                     int p = h.getBindingAdapterPosition();
                     if (p != RecyclerView.NO_POSITION) notifyItemChanged(p);
                 });
@@ -399,7 +432,7 @@ public class CategoryActivity extends BaseActivity {
                 sw.setVisibility(View.GONE);
                 if (f.type == Features.Type.CHOICE) {
                     if (Previews.has(f.key)) { thumb.setVisibility(View.VISIBLE); loadThumb(it, Catalog.choice(CategoryActivity.this, it), thumb); }
-                    v.setOnClickListener(x -> choose(it));
+                    v.setOnClickListener(x -> { if (blocker != null) askParent(blocker, () -> choose(it)); else choose(it); });
                 } else v.setOnClickListener(x -> act(it));
             }
         }

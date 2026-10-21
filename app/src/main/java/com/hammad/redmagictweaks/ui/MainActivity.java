@@ -98,9 +98,11 @@ public class MainActivity extends BaseActivity {
         list.setAdapter(new HomeAdapter());
         MaterialToolbar tb = findViewById(R.id.toolbar);
         tb.getMenu().findItem(R.id.action_advanced).setChecked(UiPrefs.advanced(this));
+        tb.getMenu().findItem(R.id.action_detailed).setChecked(UiPrefs.detailed(this));
         tb.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
             if (id == R.id.action_advanced) toggleAdvanced(item);
+            else if (id == R.id.action_detailed) toggleDetailed(item);
             else if (id == R.id.action_restart_sysui) confirm("Restart System UI?", "The status bar, lock screen and panels reload; takes about two seconds.", () -> {
                 Root.Result r = Root.restartSystemUi();
                 if (r.ok()) com.hammad.redmagictweaks.Pending.clearSystemUi(this);
@@ -256,10 +258,11 @@ public class MainActivity extends BaseActivity {
                     ((ImageView) v.findViewById(R.id.cat_icon)).setImageResource(c.icon);
                     ((ImageView) v.findViewById(R.id.cat_icon)).setColorFilter(getColor(R.color.accent));
                     ((TextView) v.findViewById(R.id.cat_title)).setText(c.title);
-                    int on = Catalog.changedCount(MainActivity.this, c);
+                    int on = Catalog.changedCount(MainActivity.this, c), total = Catalog.total(c);
                     TextView count = v.findViewById(R.id.cat_count);
-                    count.setText(on == 0 ? c.subtitle : on + " on");
+                    count.setText(total == 0 ? c.subtitle : on == 0 ? total + " tweaks" : on + " on of " + total);
                     count.setTextColor(getColor(on == 0 ? R.color.text_dim : R.color.accent));
+                    ((TextView) v.findViewById(R.id.cat_contents)).setText(Catalog.contents(c));
                     v.setOnClickListener(x -> startActivity(new Intent(MainActivity.this, CategoryActivity.class).putExtra(CategoryActivity.EXTRA_CATEGORY, c.id)));
                     break;
                 }
@@ -297,7 +300,7 @@ public class MainActivity extends BaseActivity {
             else if (!readable) d.append("\nThe settings file is not shared with the hooked apps yet: reboot once.");
             ((TextView) v.findViewById(R.id.state_detail)).setText(d);
             int on = settingsOn();
-            ((TextView) v.findViewById(R.id.on_count)).setText(on + " on");
+            ((TextView) v.findViewById(R.id.on_count)).setText(on + " on of " + Catalog.total(MainActivity.this));
             MaterialSwitch sw = v.findViewById(R.id.safe_switch);
             sw.setOnCheckedChangeListener(null);
             sw.setChecked(safe);

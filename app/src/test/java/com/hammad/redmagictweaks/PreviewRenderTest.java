@@ -43,19 +43,47 @@ public class PreviewRenderTest {
         save(LookPreview.row(ctx, page, new String[]{LookPreview.CC}, 300), new File(out, "5-cc-one-ui-page.png"));
         save(LookPreview.row(ctx, below, new String[]{LookPreview.CC}, 300), new File(out, "6-cc-bars-below.png"));
         save(LookPreview.row(ctx, classic, new String[]{LookPreview.SHADE}, 300), new File(out, "7-shade-classic-qs.png"));
-        // recent apps: every style, then the picker cards of each option
-        String[] styles = com.hammad.redmagictweaks.xposed.RecentsArt.STYLES;
-        for (int i = 0; i < styles.length; i++) {
-            Looks.V v = Looks.with(stock, com.hammad.redmagictweaks.xposed.RecentsArt.KEY_STYLE, i);
-            save(LookPreview.row(ctx, v, new String[]{LookPreview.RECENTS}, 300), new File(out, "8-recents-" + i + ".png"));
+        // One UI 8 volume panel and power menu: a few combinations, then every option card of each setting in a strip
+        Looks.V vol = Looks.with(Looks.with(stock, SurfaceFeatures.VOL_ONEUI, Boolean.TRUE), SurfaceFeatures.PWR_ONEUI, Boolean.TRUE);
+        Object[][][] combos = {
+            {},
+            {{SurfaceFeatures.VOL_ONEUI_WIDTH, 1}, {SurfaceFeatures.VOL_ONEUI_HEIGHT, 3}},
+            {{SurfaceFeatures.VOL_ONEUI_SHAPE, 1}, {SurfaceFeatures.VOL_ONEUI_COLOR, 3}, {SurfaceFeatures.VOL_ONEUI_LEVEL, Boolean.TRUE}},
+            {{SurfaceFeatures.VOL_ONEUI_SHAPE, 4}, {SurfaceFeatures.VOL_ONEUI_COLOR, 10}, {SurfaceFeatures.VOL_ONEUI_TRACK, 3}},
+            {{SurfaceFeatures.VOL_ONEUI_ICON, 1}, {SurfaceFeatures.VOL_ONEUI_HEIGHT, 1}, {SurfaceFeatures.VOL_ONEUI_WIDTH, 4}},
+            {{SurfaceFeatures.PWR_ONEUI_SHAPE, 1}, {SurfaceFeatures.PWR_ONEUI_COLORS, 1}},
+            {{SurfaceFeatures.PWR_ONEUI_SHAPE, 3}, {SurfaceFeatures.PWR_ONEUI_COLORS, 5}, {SurfaceFeatures.PWR_ONEUI_SIZE, 3}, {SurfaceFeatures.PWR_ONEUI_LABELS, 2}},
+        };
+        for (int i = 0; i < combos.length; i++) {
+            Looks.V v = vol;
+            for (Object[] kv : combos[i]) v = Looks.with(v, (String) kv[0], kv[1]);
+            save(LookPreview.row(ctx, v, new String[]{LookPreview.VOLUME, LookPreview.POWER}, 310), new File(out, "10-oneui-volume-power-" + i + ".png"));
         }
-        String[] keys = {com.hammad.redmagictweaks.xposed.RecentsArt.KEY_STYLE, com.hammad.redmagictweaks.xposed.RecentsArt.KEY_HEADER,
-                com.hammad.redmagictweaks.xposed.RecentsArt.KEY_CLEAR, com.hammad.redmagictweaks.xposed.RecentsArt.KEY_CORNERS, com.hammad.redmagictweaks.xposed.RecentsArt.KEY_SIZE};
+        String[] keys = {SurfaceFeatures.VOL_ONEUI_WIDTH, SurfaceFeatures.VOL_ONEUI_HEIGHT, SurfaceFeatures.VOL_ONEUI_SHAPE, SurfaceFeatures.VOL_ONEUI_COLOR,
+                SurfaceFeatures.VOL_ONEUI_TRACK, SurfaceFeatures.VOL_ONEUI_ICON, SurfaceFeatures.PWR_ONEUI_SIZE, SurfaceFeatures.PWR_ONEUI_SHAPE,
+                SurfaceFeatures.PWR_ONEUI_COLORS, SurfaceFeatures.PWR_ONEUI_LABELS};
         for (String k : keys) {
             Features.Feature f = Features.feature(k);
-            for (int i = 0; i < f.choices.length; i++)
-                save(LookPreview.recentsCrop(ctx, Looks.with(stock, k, i), k), new File(out, "9-pick-" + k + "-" + i + ".png"));
+            Drawable[] cards = new Drawable[f.choices.length];
+            for (int i = 0; i < cards.length; i++) cards[i] = Previews.of(k).get(ctx, i);
+            saveStrip(cards, new File(out, "11-cards-" + k + ".png"));
         }
+    }
+
+    /** Option cards side by side, 7 per line. */
+    private static void saveStrip(Drawable[] cards, File f) throws Exception {
+        int cw = cards[0].getIntrinsicWidth(), ch = cards[0].getIntrinsicHeight(), gap = 12, per = 7;
+        int cols = Math.min(per, cards.length), rows = (cards.length + per - 1) / per;
+        Bitmap b = Bitmap.createBitmap(cols * (cw + gap) + gap, rows * (ch + gap) + gap, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        c.drawColor(0xFF0A0A0E);
+        for (int i = 0; i < cards.length; i++) {
+            int x = gap + (i % per) * (cw + gap), y = gap + (i / per) * (ch + gap);
+            cards[i].setBounds(x, y, x + cw, y + ch);
+            cards[i].draw(c);
+        }
+        try (FileOutputStream o = new FileOutputStream(f)) { b.compress(Bitmap.CompressFormat.PNG, 100, o); }
+        System.out.println("preview " + f + " " + b.getWidth() + "x" + b.getHeight());
     }
 
     private static void save(Drawable d, File f) throws Exception {

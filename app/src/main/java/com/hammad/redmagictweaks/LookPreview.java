@@ -905,12 +905,28 @@ public final class LookPreview {
 
     // ============================================================================================ volume pop-up
 
+    /** The One UI volume / power options as the painters see them (read through r.v, so the option sheets know). */
+    static com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look oneUi(final R r) {
+        return com.hammad.redmagictweaks.xposed.OneUiVolumeArt.look(new com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Src() {
+            @Override public int choice(String k) { return r.v.choice(k); }
+            @Override public boolean on(String k) { return r.v.on(k); }
+        });
+    }
+
     private static void paintVolume(Canvas c, R r) {
         Looks.V v = r.v;
         background(c, r, 0x1F000000);
         statusBar(c, r, 0, 0xFFFFFFFF, true);
         homeIcons(c, r);
         boolean oneUi = v.on(SurfaceFeatures.VOL_ONEUI);
+        com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look = oneUi(r);
+        if (oneUi) {
+            // the dialog is centred on the right edge; it grows equally up and down
+            float col = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.columnDp(look), extra = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.extraDp(look);
+            float top = 230 - extra / 2f, cx = SW - 20 - col / 2f;
+            com.hammad.redmagictweaks.xposed.OneUiVolumeArt.paintPanel(c, r.ctx, cx, top, look, 0.45f, true, 1f);
+            return;
+        }
         float right = SW - 20, w = 56, left = right - w, top = 230, mainH = 248;
         float cx = left + w / 2;
         Paint p = r.gp; p.setStyle(Paint.Style.FILL);
@@ -920,40 +936,27 @@ public final class LookPreview {
         glyph(c, r, "ring", cx, top + mainH + 34, 22, 0xFFFFFFFF);
         // expand chevron
         Paint s = new Paint(Paint.ANTI_ALIAS_FLAG); s.setColor(0xFFFFFFFF); s.setStyle(Paint.Style.STROKE); s.setStrokeWidth(2.4f); s.setStrokeCap(Paint.Cap.ROUND); s.setStrokeJoin(Paint.Join.ROUND);
-        Path ch = new Path(); ch.moveTo(cx + 4, top + 12); ch.lineTo(cx - 3, top + 19); ch.lineTo(cx + 4, top + 26);
+        Path ch = new Path(); ch.moveTo(cx + 4, top + 21); ch.lineTo(cx - 3, top + 28); ch.lineTo(cx + 4, top + 35);
         c.drawPath(ch, s);
         float sliderTop = top + 37 + (171 - 146) / 2f, sliderBottom = sliderTop + 146;
         float fraction = 0.45f;
-        if (oneUi) {
-            float thick = 52;
-            RectF track = new RectF(cx - thick / 2, sliderTop, cx + thick / 2, sliderBottom);
-            int save = c.save();
-            c.rotate(-90f, track.centerX(), track.centerY());
-            RectF hb = new RectF(track.centerX() - track.height() / 2, track.centerY() - track.width() / 2, track.centerX() + track.height() / 2, track.centerY() + track.width() / 2);
-            p.setColor(0x40FFFFFF); c.drawRoundRect(hb, thick / 2, thick / 2, p);
-            p.setColor(QsArt.oneUiFill(true));
-            c.drawRoundRect(new RectF(hb.left, hb.top, hb.left + QsArt.oneUi8FillLength(hb, fraction), hb.bottom), thick / 2, thick / 2, p);
-            c.restoreToCount(save);
-            ccGlyph(c, CcGlyph.SPEAKER, cx, sliderBottom - thick / 2, 22, QsArt.oneUiIconOverFill(true));
-        } else {
-            final float thick = 20;
-            final RectF track = new RectF(cx - thick / 2, sliderTop, cx + thick / 2, sliderBottom);
-            final Canvas cv = c;
-            final Paint pp = new Paint(Paint.ANTI_ALIAS_FLAG);
-            com.hammad.redmagictweaks.xposed.QsArt.NativeDraw stock = () -> {
-                pp.setColor(0x4DFFFFFF); cv.drawRoundRect(track, thick / 2, thick / 2, pp);
-                int s2 = cv.save(); cv.clipRect(track.left, track.bottom - track.height() * fraction, track.right, track.bottom);
-                pp.setColor(0xFFF4F4F6); cv.drawRoundRect(track, thick / 2, thick / 2, pp); cv.restoreToCount(s2);
-            };
-            int style = v.choice(SurfaceFeatures.VOL_STYLE);
-            float[] radii = new float[8]; Arrays.fill(radii, thick / 2);
-            boolean done = false;
-            if (style > 0) { try { done = SurfaceArt.drawVolume(style, c, track, radii, 1f, stock); } catch (Throwable ignored) { } }
-            if (!done) { try { stock.draw(); } catch (Throwable ignored) { } }
-            p.setColor(0xFFFFFFFF);
-            c.drawCircle(cx, track.bottom - track.height() * fraction, 6, p);
-            ccGlyph(c, CcGlyph.SPEAKER, cx, top + 37 + 171 + 12, 22, 0xFFFFFFFF);
-        }
+        final float thick = 20;
+        final RectF track = new RectF(cx - thick / 2, sliderTop, cx + thick / 2, sliderBottom);
+        final Canvas cv = c;
+        final Paint pp = new Paint(Paint.ANTI_ALIAS_FLAG);
+        com.hammad.redmagictweaks.xposed.QsArt.NativeDraw stock = () -> {
+            pp.setColor(0x4DFFFFFF); cv.drawRoundRect(track, thick / 2, thick / 2, pp);
+            int s2 = cv.save(); cv.clipRect(track.left, track.bottom - track.height() * fraction, track.right, track.bottom);
+            pp.setColor(0xFFF4F4F6); cv.drawRoundRect(track, thick / 2, thick / 2, pp); cv.restoreToCount(s2);
+        };
+        int style = v.choice(SurfaceFeatures.VOL_STYLE);
+        float[] radii = new float[8]; Arrays.fill(radii, thick / 2);
+        boolean done = false;
+        if (style > 0) { try { done = SurfaceArt.drawVolume(style, c, track, radii, 1f, stock); } catch (Throwable ignored) { } }
+        if (!done) { try { stock.draw(); } catch (Throwable ignored) { } }
+        p.setColor(0xFFFFFFFF);
+        c.drawCircle(cx, track.bottom - track.height() * fraction, 6, p);
+        ccGlyph(c, CcGlyph.SPEAKER, cx, top + 37 + 171 + 12, 22, 0xFFFFFFFF);
     }
 
     /** A few app icons and a dock so the volume / power screens read as "over the home screen". */
@@ -1007,23 +1010,54 @@ public final class LookPreview {
         p.setColor(0x26FFFFFF); c.drawRect(0, 0, SW, SH, p);   // the blur, roughly
         p.setColor(0xB3000000); c.drawRect(0, 0, SW, SH, p);
         boolean oneUi = v.on(SurfaceFeatures.PWR_ONEUI);
+        com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look = oneUi(r);
         int finish = v.choice(SurfaceFeatures.PWR_STYLE);
-        float size = oneUi ? 72 : 60, cy = SH / 2f + 4;
-        float[] xs = {34 + 46, SW / 2, SW - 34 - 46};
-        String[] names = {"Power off", "Restart", "Lockdown"};
-        int[] fills = oneUi ? new int[]{0xFFE5484D, 0xFF2FA866, 0xFF55555C} : new int[]{0x2EFFFFFF, 0x2EFFFFFF, 0x2EFFFFFF};
+        powerButtons(c, r, r.ctx, oneUi ? look : null, finish, SH / 2f + 4, new float[]{34 + 46, SW / 2, SW - 34 - 46});
+    }
+
+    /** The three power-menu buttons with their names; {@code look} null = RedMagic's own. */
+    private static void powerButtons(Canvas c, R r, Context ctx, com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look, int finish, float cy, float[] xs) {
+        boolean oneUi = look != null;
+        float size = oneUi ? com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrSizeDp(look) : 60;
+        String[] names = {"Power off", "Restart", "Lockdown"}, ids = {"power", "reset", "lockdown"};
         for (int i = 0; i < 3; i++) {
             float x = xs[i];
             RectF b = new RectF(x - size / 2, cy - size / 2, x + size / 2, cy + size / 2);
-            p.setColor(fills[i]); c.drawOval(b, p);
-            if (!oneUi && finish > 0) { float[] corners = new float[8]; Arrays.fill(corners, size / 2); try { SurfaceArt.drawCard(finish, c, b, corners, 1f); } catch (Throwable ignored) { } }
-            int gc = oneUi ? 0xFFFFFFFF : 0xE6FFFFFF;
-            if (i == 0) ccGlyph(c, CcGlyph.POWER, x, cy, size * 0.42f, gc);
-            else if (i == 1) restart(c, x, cy, size * 0.42f, gc);
-            else padlock(c, x, cy, size * 0.42f, gc);
-            if (oneUi) text(c, r, names[i], x, cy + size / 2 + 12 + 15, 14f, 700, 0xFFFFFFFF, Paint.Align.CENTER);
-            else text(c, r, names[i], x, cy + size / 2 + 10 + 12, 12f, 400, 0xCCFFFFFF, Paint.Align.CENTER);
+            int gc;
+            if (oneUi) {
+                int[] colors = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrColors(ctx, look, ids[i]);
+                com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrButton(c, b, look, colors);
+                gc = colors[1];
+            } else {
+                Paint p = new Paint(Paint.ANTI_ALIAS_FLAG); p.setColor(0x2EFFFFFF); c.drawOval(b, p);
+                if (finish > 0) { float[] corners = new float[8]; Arrays.fill(corners, size / 2); try { SurfaceArt.drawCard(finish, c, b, corners, 1f); } catch (Throwable ignored) { } }
+                gc = 0xE6FFFFFF;
+            }
+            float gs = (oneUi ? 0.42f : 0.42f) * Math.min(size, 72);
+            if (i == 0) ccGlyph(c, CcGlyph.POWER, x, cy, gs, gc);
+            else if (i == 1) restart(c, x, cy, gs, gc);
+            else padlock(c, x, cy, gs, gc);
+            if (r == null) continue;
+            if (oneUi) {
+                float sp = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrLabelSp(look);
+                text(c, r, names[i], x, cy + size / 2 + 12 + sp + 1, sp, com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrLabelBold(look) ? 700 : 400,
+                        com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrLabelColor(look), Paint.Align.CENTER);
+            } else text(c, r, names[i], x, cy + size / 2 + 10 + 12, 12f, 400, 0xCCFFFFFF, Paint.Align.CENTER);
         }
+    }
+
+    /** Option card for the One UI power-menu options: the three buttons over the dimmed blur. */
+    public static void paintPowerCard(Canvas c, Context ctx, float w, float h, float d, com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look) {
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setShader(new LinearGradient(0, 0, w, h, 0xFF2A2F45, 0xFF3D3352, Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, w, h, p);
+        p.setShader(null);
+        float unit = w / 300f;   // the card shows a 300-dp-wide slice of the screen
+        int save = c.save();
+        c.scale(unit, unit);
+        R r = new R(ctx, Looks.live(ctx));
+        powerButtons(c, r, ctx, look, 0, (h / unit) / 2f - 10, new float[]{55, 150, 245});
+        c.restoreToCount(save);
     }
 
     private static void restart(Canvas c, float cx, float cy, float size, int color) {

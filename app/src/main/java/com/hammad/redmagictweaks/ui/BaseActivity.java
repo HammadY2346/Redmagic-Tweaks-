@@ -63,6 +63,14 @@ public abstract class BaseActivity extends AppCompatActivity {
         onSettingsChanged();
     }
 
+    protected void toggleDetailed(MenuItem item) {
+        boolean v = !UiPrefs.detailed(this);
+        UiPrefs.setDetailed(this, v);
+        item.setChecked(v);
+        Toast.makeText(this, v ? "Detailed mode: every setting shows what it does" : "Compact mode: tap (i) for what a setting does", Toast.LENGTH_SHORT).show();
+        onSettingsChanged();
+    }
+
     protected void confirm(String title, String msg, Runnable action) {
         new MaterialAlertDialogBuilder(this).setTitle(title).setMessage(msg)
                 .setPositiveButton("Go", (d, w) -> new Thread(action).start())

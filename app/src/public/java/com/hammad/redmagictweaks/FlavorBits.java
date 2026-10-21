@@ -20,4 +20,7 @@ public final class FlavorBits {
 
     /** Runs an action row this flavour handles; false = not ours. */
     public static boolean runAction(Activity activity, String key) { return false; }
+
+    /** A short About page {repository link, "made and tested on" line, credited name}, or null for the full one. */
+    public static String[] shortAbout() { return null; }
 }

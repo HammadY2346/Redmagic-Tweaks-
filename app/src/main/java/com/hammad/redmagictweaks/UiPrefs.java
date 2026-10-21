@@ -11,6 +11,9 @@ public final class UiPrefs {
     /** Advanced mode: fine-tuning rows (nudges, offsets, rotation, the stock lock clock) and the Advanced category. */
     public static boolean advanced(Context c) { return p(c).getBoolean("advanced", false); }
     public static void setAdvanced(Context c, boolean v) { p(c).edit().putBoolean("advanced", v).apply(); }
+    /** Detailed mode: every setting shows its description under its name. */
+    public static boolean detailed(Context c) { return p(c).getBoolean("detailed", false); }
+    public static void setDetailed(Context c, boolean v) { p(c).edit().putBoolean("detailed", v).apply(); }
 
     /** The three first-run steps were shown. */
     public static boolean firstRunDone(Context c) { return p(c).getBoolean("first_run_done", false); }
