@@ -1,0 +1,55 @@
+53:BUILD SUCCESSFUL in 1m 13s
+
+Welcome to Gradle 8.7!
+
+Here are the highlights of this release:
+ - Compiling and testing with Java 22
+ - Cacheable Groovy script compilation
+ - New methods in lazy collection properties
+
+For more details see https://docs.gradle.org/8.7/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:prePublicDebugBuild UP-TO-DATE
+> Task :app:generatePublicDebugBuildConfig
+> Task :app:javaPreCompilePublicDebug
+> Task :app:checkPublicDebugAarMetadata
+> Task :app:generatePublicDebugResValues
+> Task :app:mapPublicDebugSourceSetPaths
+> Task :app:generatePublicDebugResources
+> Task :app:packagePublicDebugResources
+> Task :app:mergePublicDebugResources
+> Task :app:createPublicDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksPublicDebug
+> Task :app:parsePublicDebugLocalResources
+> Task :app:processPublicDebugMainManifest
+> Task :app:processPublicDebugManifest
+> Task :app:prePublicDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompilePublicDebugUnitTest
+> Task :app:mergePublicDebugShaders
+> Task :app:compilePublicDebugShaders NO-SOURCE
+> Task :app:generatePublicDebugAssets UP-TO-DATE
+> Task :app:mergePublicDebugAssets
+> Task :app:processPublicDebugJavaRes NO-SOURCE
+> Task :app:processPublicDebugUnitTestJavaRes NO-SOURCE
+> Task :app:processPublicDebugManifestForPackage
+> Task :app:processPublicDebugResources
+
+> Task :app:compilePublicDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /home/runner/work/Redmagic-Tweaks-/Redmagic-Tweaks-/app/src/main/java/com/hammad/redmagictweaks/xposed/ThemeStoreHooks.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :app:bundlePublicDebugClassesToRuntimeJar
+> Task :app:bundlePublicDebugClassesToCompileJar
+> Task :app:packagePublicDebugUnitTestForUnitTest
+> Task :app:compilePublicDebugUnitTestJavaWithJavac
+> Task :app:generatePublicDebugUnitTestConfig
+> Task :app:testPublicDebugUnitTest
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792578008078.json
+
+BUILD SUCCESSFUL in 1m 13s
+25 actionable tasks: 25 executed
