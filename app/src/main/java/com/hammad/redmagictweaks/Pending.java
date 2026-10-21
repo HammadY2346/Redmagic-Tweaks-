@@ -43,6 +43,25 @@ public final class Pending {
         put(c, s);
     }
 
+    /** Marker of a module update the running apps have not loaded yet. */
+    public static final String UPDATE = "_update";
+
+    /** These running apps still run an older build of the module: they need a restart to load the installed one. */
+    public static void addUpdate(Context c, List<String> packages) {
+        Set<String> s = get(c);
+        for (String p : packages) {
+            if ("com.android.systemui".equals(p)) s.add("s|" + UPDATE);
+            else s.add("a|" + p + "|" + UPDATE);
+        }
+        put(c, s);
+    }
+
+    /** True when the waiting restarts include loading a module update. */
+    public static boolean update(Context c) {
+        for (String e : get(c)) if (e.endsWith("|" + UPDATE)) return true;
+        return false;
+    }
+
     public static int systemUi(Context c) { return count(c, "s|"); }
     public static int reboot(Context c) { return count(c, "r|"); }
 

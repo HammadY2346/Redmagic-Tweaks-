@@ -81,6 +81,24 @@ public final class Root {
         return b.toString();
     }
 
+    /**
+     * When each package's main process started (seconds since the epoch), for the ones that are running: boot time
+     * plus the process start field of /proc/<pid>/stat (clock ticks since boot).
+     */
+    public static java.util.Map<String, Long> startTimes(String... packages) {
+        StringBuilder b = new StringBuilder("B=$(sed -n 's/^btime //p' /proc/stat); T=$(getconf CLK_TCK 2>/dev/null || echo 100); for p in");
+        for (String p : packages) if (p != null && p.matches("[A-Za-z0-9_.]+")) b.append(' ').append(p);
+        b.append("; do for pid in $(pidof $p); do s=$(cut -d' ' -f22 /proc/$pid/stat 2>/dev/null); [ -n \"$s\" ] && echo \"$p $((B + s / T))\"; break; done; done");
+        java.util.Map<String, Long> m = new java.util.HashMap<>();
+        Result r = run(b.toString(), "true");
+        if (!r.ok() || r.out == null) return m;
+        for (String line : r.out.split("\n")) {
+            String[] f = line.trim().split(" ");
+            if (f.length == 2) { try { m.put(f[0], Long.parseLong(f[1])); } catch (NumberFormatException ignored) { } }
+        }
+        return m;
+    }
+
     /** Process ids of the package's main process ("" when it isn't running). */
     public static String pid(String pkg) {
         Result r = run("pidof " + pkg + " || true");

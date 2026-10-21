@@ -920,14 +920,15 @@ public final class LookPreview {
         homeIcons(c, r);
         boolean oneUi = v.on(SurfaceFeatures.VOL_ONEUI);
         com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look = oneUi(r);
-        if (oneUi) {
+        if (oneUi || com.hammad.redmagictweaks.xposed.OneUiVolumeArt.stockDraw(look)) {
             // the dialog is centred on the right edge; it grows equally up and down
             float col = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.columnDp(look), extra = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.extraDp(look);
-            float top = 230 - extra / 2f, cx = SW - 20 - col / 2f;
+            float top = 230 - extra / 2f, cx = SW - 20 - 28;   // centred on RedMagic's 56 dp column, as on the phone
             com.hammad.redmagictweaks.xposed.OneUiVolumeArt.paintPanel(c, r.ctx, cx, top, look, 0.45f, true, 1f);
             return;
         }
-        float right = SW - 20, w = 56, left = right - w, top = 230, mainH = 248;
+        float stockExtra = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.extraDp(look);   // "Panel height" on RedMagic's own bar
+        float right = SW - 20, w = 56, left = right - w, top = 230 - stockExtra / 2f, mainH = 248 + stockExtra;
         float cx = left + w / 2;
         Paint p = r.gp; p.setStyle(Paint.Style.FILL);
         p.setColor(0xB3303036);
@@ -938,7 +939,7 @@ public final class LookPreview {
         Paint s = new Paint(Paint.ANTI_ALIAS_FLAG); s.setColor(0xFFFFFFFF); s.setStyle(Paint.Style.STROKE); s.setStrokeWidth(2.4f); s.setStrokeCap(Paint.Cap.ROUND); s.setStrokeJoin(Paint.Join.ROUND);
         Path ch = new Path(); ch.moveTo(cx + 4, top + 21); ch.lineTo(cx - 3, top + 28); ch.lineTo(cx + 4, top + 35);
         c.drawPath(ch, s);
-        float sliderTop = top + 37 + (171 - 146) / 2f, sliderBottom = sliderTop + 146;
+        float sliderTop = top + 37 + (171 - 146) / 2f, sliderBottom = sliderTop + 146 + stockExtra;
         float fraction = 0.45f;
         final float thick = 20;
         final RectF track = new RectF(cx - thick / 2, sliderTop, cx + thick / 2, sliderBottom);
@@ -956,7 +957,7 @@ public final class LookPreview {
         if (!done) { try { stock.draw(); } catch (Throwable ignored) { } }
         p.setColor(0xFFFFFFFF);
         c.drawCircle(cx, track.bottom - track.height() * fraction, 6, p);
-        ccGlyph(c, CcGlyph.SPEAKER, cx, top + 37 + 171 + 12, 22, 0xFFFFFFFF);
+        ccGlyph(c, CcGlyph.SPEAKER, cx, top + 37 + 171 + stockExtra + 12, 22, 0xFFFFFFFF);
     }
 
     /** A few app icons and a dock so the volume / power screens read as "over the home screen". */

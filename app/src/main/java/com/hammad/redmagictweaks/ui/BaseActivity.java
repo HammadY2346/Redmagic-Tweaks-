@@ -48,6 +48,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override protected void onResume() {
         super.onResume();
         if (restartBar != null) restartBar.update();
+        com.hammad.redmagictweaks.ModuleUpdate.check(this);
     }
 
     @Override protected void onDestroy() {

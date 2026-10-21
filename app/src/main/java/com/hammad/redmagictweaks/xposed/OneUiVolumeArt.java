@@ -26,20 +26,25 @@ public final class OneUiVolumeArt {
             VOL_FILL = "vol_oneui_color", VOL_TRACK = "vol_oneui_track", VOL_ICON = "vol_oneui_icon", VOL_LEVEL = "vol_oneui_level";
     public static final String PWR_SIZE = "pwr_oneui_size", PWR_SHAPE = "pwr_oneui_shape", PWR_COLORS = "pwr_oneui_colors", PWR_LABELS = "pwr_oneui_labels";
 
-    public static final String[] WIDTHS = {"One UI (40 dp)", "Slim (32 dp)", "Narrow (36 dp)", "Medium (44 dp)", "Stock width (52 dp)"};
-    private static final int[] WIDTH_DP = {40, 32, 36, 44, 52};
-    public static final String[] HEIGHTS = {"One UI (80 dp taller)", "Stock height", "40 dp taller", "120 dp taller", "160 dp taller"};
+    /** The switch that picks the One UI 8 panel; with it off the options restyle RedMagic's own bar. */
+    public static final String VOL_ONEUI = "vol_oneui8";
+
+    // index 0 is "Default": the One UI value with the One UI panel on, RedMagic's own with it off (stock stays stock)
+    public static final String[] WIDTHS = {"Default (One UI 40 dp, RedMagic 20 dp)", "Slim (32 dp)", "Narrow (36 dp)", "Medium (44 dp)", "Wide (52 dp)",
+            "Thin (14 dp)", "Hairline (8 dp)", "Bold (28 dp)"};
+    private static final int[] WIDTH_DP = {40, 32, 36, 44, 52, 14, 8, 28};
+    public static final String[] HEIGHTS = {"Default (One UI 80 dp taller, RedMagic stock)", "Stock height", "40 dp taller", "120 dp taller", "160 dp taller"};
     private static final int[] HEIGHT_DP = {80, 0, 40, 120, 160};
     public static final String[] SHAPES = {"Pill (One UI)", "Rounded", "Soft square", "Square", "Leaf", "Pointed", "Thin line", "Segments",
             "Dots", "Outline", "Notched"};
     /** Shapes whose panel and ringer button stay round (the drawn bar has its own look). */
     private static final int SHAPE_POINTED = 5, SHAPE_THIN = 6, SHAPE_SEGMENTS = 7, SHAPE_DOTS = 8, SHAPE_OUTLINE = 9, SHAPE_NOTCHED = 10;
-    public static final String[] FILLS = {"One UI (light)", "Wallpaper colour", "RedMagic red", "Blue", "Green", "Purple", "Orange", "Pink",
+    public static final String[] FILLS = {"Default (light)", "Wallpaper colour", "RedMagic red", "Blue", "Green", "Purple", "Orange", "Pink",
             "Teal", "Gold", "Sunset gradient", "Ocean gradient", "RedMagic gradient", "Aurora gradient"};
     private static final int[][] FILL_RGB = {null, null, {0xFFE8343B}, {0xFF3E8BFF}, {0xFF34C759}, {0xFF9B6BFF}, {0xFFFF9F0A}, {0xFFFF5C93},
             {0xFF2EC4B6}, {0xFFE6B84C}, {0xFFFF9F0A, 0xFFFF2D55}, {0xFF2EC4B6, 0xFF3E5BFF}, {0xFFFF5A3C, 0xFFC8102E}, {0xFF34C759, 0xFF9B6BFF}};
-    public static final String[] TRACKS = {"Glass (One UI)", "Clear", "Dim", "Solid", "Tinted"};
-    public static final String[] ICONS = {"Inside the bar (One UI)", "Under the bar (stock)"};
+    public static final String[] TRACKS = {"Default (glass)", "Clear", "Dim", "Solid", "Tinted"};
+    public static final String[] ICONS = {"Default (One UI inside, RedMagic under)", "Under the bar", "Inside the bar"};
 
     public static final String[] PWR_SIZES = {"One UI (72 dp)", "Stock (60 dp)", "Medium (66 dp)", "Large (80 dp)", "Huge (88 dp)"};
     private static final int[] PWR_SIZE_DP = {72, 60, 66, 80, 88};
@@ -55,6 +60,8 @@ public final class OneUiVolumeArt {
     public static final class Look {
         public int width, height, shape, fill, track, icon, pwrSize, pwrShape, pwrColors, pwrLabels;
         public boolean level;
+        /** The One UI 8 panel is on (else the options restyle RedMagic's own bar). */
+        public boolean oneUi;
     }
 
     private static int clamp(int v, int n) { return v < 0 || v >= n ? 0 : v; }
@@ -68,6 +75,7 @@ public final class OneUiVolumeArt {
         l.track = clamp(s.choice(VOL_TRACK), TRACKS.length);
         l.icon = clamp(s.choice(VOL_ICON), ICONS.length);
         l.level = s.on(VOL_LEVEL);
+        l.oneUi = s.on(VOL_ONEUI);
         l.pwrSize = clamp(s.choice(PWR_SIZE), PWR_SIZES.length);
         l.pwrShape = clamp(s.choice(PWR_SHAPE), PWR_SHAPES.length);
         l.pwrColors = clamp(s.choice(PWR_COLORS), PWR_COLOR_SETS.length);
@@ -75,13 +83,20 @@ public final class OneUiVolumeArt {
         return l;
     }
 
-    /** Thickness of the bar. */
-    public static int thickDp(Look l) { return WIDTH_DP[l.width]; }
-    /** Width of the panel column around it (a 2 dp rim on each side). */
-    public static int columnDp(Look l) { return thickDp(l) + 4; }
+    /** Thickness of the bar (RedMagic's own bar is 20 dp). */
+    public static int thickDp(Look l) { return l.width == 0 ? (l.oneUi ? 40 : 20) : WIDTH_DP[l.width]; }
+    /** Width of the drawn panel around it: One UI 2 dp wider than the bar, RedMagic's own 56 dp column. */
+    public static int columnDp(Look l) { return l.oneUi ? thickDp(l) + 4 : 56; }
     /** How much taller than stock the panel gets. */
-    public static int extraDp(Look l) { return HEIGHT_DP[l.height]; }
-    public static boolean iconInside(Look l) { return l.icon == 0; }
+    public static int extraDp(Look l) { return l.height == 0 ? (l.oneUi ? 80 : 0) : HEIGHT_DP[l.height]; }
+    /** The speaker icon sits in the circle at the bottom of the bar (needs a bar at least 24 dp thick). */
+    public static boolean iconInside(Look l) { return (l.icon == 0 ? l.oneUi : l.icon == 2) && thickDp(l) >= 24; }
+    /** With the One UI panel off: an option changes how RedMagic's own bar is drawn (otherwise RedMagic draws it). */
+    public static boolean stockDraw(Look l) { return !l.oneUi && (l.width != 0 || l.shape != 0 || l.fill != 0 || l.track != 0 || l.level || l.icon == 2); }
+    /** The bar is drawn by the module (One UI panel, or a restyled RedMagic bar). */
+    public static boolean custom(Look l) { return l.oneUi || stockDraw(l); }
+    /** The panel's size changes (One UI panel, a restyled RedMagic bar, or a taller RedMagic panel). */
+    public static boolean customLayout(Look l) { return custom(l) || extraDp(l) > 0; }
 
     // ============================================================================================ colours
 
@@ -94,7 +109,7 @@ public final class OneUiVolumeArt {
     public static int[] fill(Context ctx, Look l, boolean dark) {
         if (l.fill == 1) { int a = accent(ctx, dark); return new int[]{a, a}; }
         int[] rgb = FILL_RGB[l.fill];
-        if (rgb == null) { int f = dark ? 0xFFEDEDF0 : 0xFFFFFFFF; return new int[]{f, f}; }
+        if (rgb == null) { int f = dark ? (l.oneUi ? 0xFFEDEDF0 : 0xFFF4F4F6) : 0xFFFFFFFF; return new int[]{f, f}; }
         return rgb.length == 1 ? new int[]{rgb[0], rgb[0]} : rgb.clone();
     }
 
@@ -104,7 +119,7 @@ public final class OneUiVolumeArt {
             case 2: return dark ? 0x59000000 : 0x33000000;
             case 3: return dark ? 0xFF2C2C30 : 0xFFE4E4EA;
             case 4: return (fill[1] & 0x00FFFFFF) | 0x4D000000;
-            default: return dark ? 0x40FFFFFF : 0x26000000;
+            default: return l.oneUi ? (dark ? 0x40FFFFFF : 0x26000000) : (dark ? 0x4DFFFFFF : 0x33000000);
         }
     }
 
@@ -234,6 +249,12 @@ public final class OneUiVolumeArt {
             }
         }
         p.setShader(null);
+        if (!l.oneUi && l.shape != SHAPE_THIN && l.shape != SHAPE_SEGMENTS && l.shape != SHAPE_DOTS) {
+            // RedMagic's bar: a dot at the level
+            Paint k = new Paint(Paint.ANTI_ALIAS_FLAG);
+            k.setColor((over(fill[1]) & 0x00FFFFFF) | 0xA6000000);
+            c.drawCircle(Math.max(t.left + thick / 2f, t.left + len - thick / 2f), t.centerY(), thick * 0.26f, k);
+        }
         if (!enabled) {
             path.reset();
             path.addRoundRect(t, thick / 2f, thick / 2f, Path.Direction.CW);

@@ -53,6 +53,10 @@ public class PreviewRenderTest {
             {{SurfaceFeatures.VOL_ONEUI_ICON, 1}, {SurfaceFeatures.VOL_ONEUI_HEIGHT, 1}, {SurfaceFeatures.VOL_ONEUI_WIDTH, 4}},
             {{SurfaceFeatures.PWR_ONEUI_SHAPE, 1}, {SurfaceFeatures.PWR_ONEUI_COLORS, 1}},
             {{SurfaceFeatures.PWR_ONEUI_SHAPE, 3}, {SurfaceFeatures.PWR_ONEUI_COLORS, 5}, {SurfaceFeatures.PWR_ONEUI_SIZE, 3}, {SurfaceFeatures.PWR_ONEUI_LABELS, 2}},
+            // RedMagic's own bar restyled (One UI panel off)
+            {{SurfaceFeatures.VOL_ONEUI, Boolean.FALSE}, {SurfaceFeatures.VOL_ONEUI_COLOR, 3}, {SurfaceFeatures.VOL_ONEUI_LEVEL, Boolean.TRUE}},
+            {{SurfaceFeatures.VOL_ONEUI, Boolean.FALSE}, {SurfaceFeatures.VOL_ONEUI_SHAPE, 7}, {SurfaceFeatures.VOL_ONEUI_COLOR, 12}, {SurfaceFeatures.VOL_ONEUI_WIDTH, 7}, {SurfaceFeatures.VOL_ONEUI_HEIGHT, 2}},
+            {{SurfaceFeatures.VOL_ONEUI, Boolean.FALSE}, {SurfaceFeatures.VOL_ONEUI_HEIGHT, 3}},
         };
         for (int i = 0; i < combos.length; i++) {
             Looks.V v = vol;

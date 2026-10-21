@@ -62,6 +62,11 @@ final class RestartBar {
         } else {
             s.append(reboot == 1 ? "1 change needs a reboot" : reboot + " changes need a reboot");
         }
+        if (Pending.update(a) && !parts.isEmpty()) {
+            // a module update the running apps have not loaded yet
+            s = new StringBuilder("Update installed: ").append(join(parts)).append(parts.size() == 1 ? " needs" : " need").append(" a restart to load it");
+            if (reboot > 0) s.append(reboot == 1 ? ", 1 change a reboot" : ", " + reboot + " changes a reboot");
+        }
         text.setText(s);
         if (!parts.isEmpty()) {
             action.setText("Restart");

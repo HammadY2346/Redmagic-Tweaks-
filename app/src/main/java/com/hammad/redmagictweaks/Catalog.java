@@ -90,8 +90,6 @@ public final class Catalog {
     /** Settings that only do something while another switch is on: setting -> the switch. */
     private static final Map<String, String> NEEDS = new HashMap<>();
     static {
-        for (String k : new String[]{"vol_oneui_width", "vol_oneui_height", "vol_oneui_shape", "vol_oneui_color", "vol_oneui_track", "vol_oneui_icon", "vol_oneui_level"})
-            NEEDS.put(k, "vol_oneui8");
         for (String k : new String[]{"pwr_oneui_size", "pwr_oneui_shape", "pwr_oneui_colors", "pwr_oneui_labels"}) NEEDS.put(k, "pwr_oneui8");
         for (String k : new String[]{"lock_oneui_face", "lock_oneui_size", "lock_oneui_position"}) NEEDS.put(k, "lock_oneui_clock");
     }
@@ -211,9 +209,9 @@ public final class Catalog {
             .group("Collaboration styles", "fp_chisa", "fp_fighting", "fp_wuthering_waves", "fp_lty", "fp_golden_saga")
             .group("Unlocking", "fp_unlock_all");
         b.cat("volume", "Volume & power", "Volume panel, power menu and volume limits", R.drawable.ic_cat_volume, false)
-            .group("One UI 8 volume panel", "vol_oneui8", "vol_oneui_width", "vol_oneui_height", "vol_oneui_shape", "vol_oneui_color", "vol_oneui_track",
-                    "vol_oneui_icon", "vol_oneui_level")
-            .group("Volume", "vol_style", "sb_volume_no_warning", "fw_no_safe_volume", "fw_volume_boost", "fw_dnd_volume", "sb_volume_no_vibrate")
+            .group("Volume panel", "vol_oneui8", "vol_oneui_width", "vol_oneui_height", "vol_oneui_shape", "vol_oneui_color", "vol_oneui_track",
+                    "vol_oneui_icon", "vol_oneui_level", "vol_style")
+            .group("Volume", "sb_volume_no_warning", "fw_no_safe_volume", "fw_volume_boost", "fw_dnd_volume", "sb_volume_no_vibrate")
             .group("One UI 8 power menu", "pwr_oneui8", "pwr_oneui_size", "pwr_oneui_shape", "pwr_oneui_colors", "pwr_oneui_labels")
             .group("Power", "pwr_style", "fw_power_assist");
         b.cat("charging", "Charging & battery", "Charging animation, readouts and battery options", R.drawable.ic_cat_charging, false)

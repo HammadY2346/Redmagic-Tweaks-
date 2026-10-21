@@ -62,6 +62,8 @@ final class SurfaceHooks {
     static final class S {
         int notifStyle, notifOpacity, notifCorner, iconLimit, volume, power;
         boolean noAutoHeadsUp, overflowCount, volOneUi, pwrOneUi;
+        /** the module draws the volume bar (One UI panel, or RedMagic's bar restyled), and changes the panel's size */
+        boolean volCustom, volLayout;
         OneUiVolumeArt.Look one = OneUiVolumeArt.look(new OneUiVolumeArt.Src() {
             @Override public int choice(String key) { return 0; }
             @Override public boolean on(String key) { return false; }
@@ -89,6 +91,8 @@ final class SurfaceHooks {
             n.volOneUi = Cfg.on(SurfaceFeatures.VOL_ONEUI);
             n.pwrOneUi = Cfg.on(SurfaceFeatures.PWR_ONEUI);
             n.one = OneUiVolumeArt.look(CFG);
+            n.volCustom = OneUiVolumeArt.custom(n.one);
+            n.volLayout = OneUiVolumeArt.customLayout(n.one);
             S old = snap;
             snap = n; snapAt = now;
             if (old.iconLimit != n.iconLimit || old.overflowCount != n.overflowCount) refreshIcons();
@@ -275,10 +279,10 @@ final class SurfaceHooks {
                 if (p.hasThrowable() || !main() || !p.thisObject.getClass().getName().equals(VOLUME_DIALOG)) return;
                 try {
                     volumeDialogs.put(p.thisObject, Boolean.TRUE); scanRows(p.thisObject);
-                    boolean oneUi = s().volOneUi;
+                    S cur = s();
                     for (Map.Entry<SeekBar, RowEntry> e : new ArrayList<>(volumeRows.entrySet()))
-                        if (e.getValue().dialog.get() == p.thisObject) { if (oneUi) oneUiGeometry(e.getKey()); else stockGeometry(e.getKey(), e.getValue()); }
-                    if (oneUi && volStockFields.containsKey(p.thisObject)) volLayout(p.thisObject);   // rows added since the last layout
+                        if (e.getValue().dialog.get() == p.thisObject) { if (cur.volCustom) oneUiGeometry(e.getKey()); else stockGeometry(e.getKey(), e.getValue()); }
+                    if (cur.volLayout && volStockFields.containsKey(p.thisObject)) volLayout(p.thisObject);   // rows added since the last layout
                 } catch (Throwable t) { Lx.e("Surface: volume rows", t); }
             }
         };
@@ -288,12 +292,12 @@ final class SurfaceHooks {
             @Override protected void beforeHookedMethod(final MethodHookParam p) {
                 S cur = s();
                 int style = cur.volume;
-                if ((style <= 0 && !cur.volOneUi) || !main() || !(p.thisObject instanceof SeekBar)) return;
+                if ((style <= 0 && !cur.volCustom) || !main() || !(p.thisObject instanceof SeekBar)) return;
                 SeekBar sb = (SeekBar) p.thisObject;
                 RowEntry entry = volumeRows.get(sb);
                 if (!rowEligible(sb, entry)) return;
-                if (cur.volOneUi) {
-                    try { if (drawOneUiVolume(sb, entry, (Canvas) p.args[0])) p.setResult(null); } catch (Throwable t) { Lx.e("Surface: One UI volume draw", t); }
+                if (cur.volCustom) {
+                    try { if (drawOneUiVolume(sb, entry, (Canvas) p.args[0])) p.setResult(null); } catch (Throwable t) { Lx.e("Surface: volume bar draw", t); }
                     return;
                 }
                 try {
@@ -333,7 +337,7 @@ final class SurfaceHooks {
                 }
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     S cur = s();
-                    if (p.hasThrowable() || !cur.volOneUi || OneUiVolumeArt.panelRadii(cur.one, 40, 1f) == null) return;
+                    if (p.hasThrowable() || !cur.volCustom || OneUiVolumeArt.panelRadii(cur.one, 40, 1f) == null) return;
                     try { volPanelShape(p.thisObject, cur.one); } catch (Throwable t) { Lx.e("Surface: volume panel shape", t); }
                 }
             });
@@ -382,13 +386,15 @@ final class SurfaceHooks {
         View frame = parentView(sb);
         OneUiVolumeArt.Look l = s().one;
         int column = frame != null && frame.getWidth() > 0 ? frame.getWidth() : dp(sb, 56);
-        int want = Math.max(dp(sb, 24), Math.min(dp(sb, OneUiVolumeArt.thickDp(l)), column - dp(sb, 4)));
         int cur = XposedHelpers.getIntField(sb, "mTrackSize");
         if (!volStockSize.containsKey(sb)) {
             volStockSize.put(sb, new int[]{cur});
             Object r = XposedHelpers.getObjectField(sb, "mRadii");
             volStockRadii.put(sb, r instanceof float[] ? ((float[]) r).clone() : null);
         }
+        int stockThick = volStockSize.get(sb)[0];
+        int want = !l.oneUi && l.width == 0 && stockThick > 0 ? stockThick      // RedMagic's own thickness
+                : Math.max(dp(sb, 4), Math.min(dp(sb, OneUiVolumeArt.thickDp(l)), column - dp(sb, 4)));
         if (cur == want) return;
         XposedHelpers.setIntField(sb, "mTrackSize", want);
         XposedHelpers.setObjectField(sb, "mRadii", OneUiVolumeArt.barRadii(l, want, density(sb)));
@@ -467,7 +473,7 @@ final class SurfaceHooks {
      */
     private static void volLayout(Object dlg) {
         S cur = s();
-        boolean on = cur.volOneUi;
+        boolean on = cur.volLayout;
         Object dvo = XposedHelpers.getObjectField(dlg, "mDialogView");
         if (!(dvo instanceof View)) return;
         View dv = (View) dvo;
