@@ -46,6 +46,8 @@ jobs:
       - name: Edition and signing key
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           # the private repo has app/src/private and builds RM Tweaks; the public repo builds RedMagic Tweaks
           if [ -d app/src/private ]; then
@@ -60,8 +62,21 @@ jobs:
             exit 1
           fi
           if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            # tolerate line breaks / spaces from copying; then check the password opens it, with a readable error
+            if ! printf '%s' "$KEYSTORE_B64" | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/release.jks" 2>/dev/null; then
+              echo "::error::The KEYSTORE_B64 secret is not valid base64. Paste the whole content of redmagictweaks-release.jks.b64 (one long line) as the secret."
+              exit 1
+            fi
+            if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+              echo "::error::KEYSTORE_PASSWORD does not open the keystore from KEYSTORE_B64 (or KEYSTORE_B64 is not the .jks.b64 file). Check both secrets against release-key.txt."
+              exit 1
+            fi
+            if [ -n "$KEY_ALIAS" ] && ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+              echo "::error::The KEY_ALIAS secret should be: redmagictweaks"
+              exit 1
+            fi
             echo "RMTWEAKS_KEYSTORE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
+            echo "Signing with the release key from the repository secrets"
           fi
       - name: Build
         id: build
