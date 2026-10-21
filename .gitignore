@@ -1,0 +1,13 @@
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+app/src/main/assets/bootanimations/
+app/src/main/assets/fonts/oneui_clock.ttf
+app/src/main/assets/licenses/poppins-OFL.txt
+
+# signing keys never go into git (the public key lives in the public repo's Actions secrets)
+keys/
+*.jks.b64

@@ -1,0 +1,6 @@
+id=rmtweaks_bootanim
+name=RM Tweaks · boot animation
+version=1.0
+versionCode=1
+author=HammadY2346
+description=Shows the boot animation chosen in RM Tweaks: the archive is bind-mounted over the stock one at boot, the original file is never changed. Two boots in a row that don't finish switch it back to stock.

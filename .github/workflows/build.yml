@@ -1,0 +1,115 @@
+name: Build
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Boot animation assets (nubia-ly's pinned RisingOS set)
+        run: |
+          python3 -m pip install --quiet Pillow==11.3.0
+          python3 tools/bootanim_assets.py
+      - name: One UI lock screen clock font (Poppins SemiBold, SIL OFL)
+        run: |
+          mkdir -p app/src/main/assets/fonts app/src/main/assets/licenses
+          curl -fsSL -o app/src/main/assets/fonts/oneui_clock.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-SemiBold.ttf \
+            && curl -fsSL -o app/src/main/assets/licenses/poppins-OFL.txt https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/OFL.txt \
+            || { echo "WARNING: clock font not downloaded; the One UI clock falls back to sans-serif"; rm -f app/src/main/assets/fonts/oneui_clock.ttf; }
+      - name: One UI style System UI font (Inter, SIL OFL)
+        run: |
+          mkdir -p app/src/main/assets/fonts app/src/main/assets/licenses
+          for f in "Inter%5Bopsz,wght%5D.ttf" "Inter%5Bslnt,wght%5D.ttf"; do
+            curl -fsSL -o app/src/main/assets/fonts/oneui_sans.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/$f" && break
+            rm -f app/src/main/assets/fonts/oneui_sans.ttf
+          done
+          curl -fsSL -o app/src/main/assets/licenses/inter-OFL.txt https://raw.githubusercontent.com/google/fonts/main/ofl/inter/OFL.txt || true
+          ls -l app/src/main/assets/fonts || true
+          [ -s app/src/main/assets/fonts/oneui_sans.ttf ] || echo "WARNING: Inter not downloaded; the System UI font option stays stock"
+      - name: Edition and signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          # the private repo has app/src/private and builds RM Tweaks; the public repo builds RedMagic Tweaks
+          if [ -d app/src/private ]; then
+            echo "FLAVOR=private" >> $GITHUB_ENV; echo "TASK=assemblePrivateRelease" >> $GITHUB_ENV
+            echo "APK_NAME=RMTweaks" >> $GITHUB_ENV; echo "TITLE=RM Tweaks" >> $GITHUB_ENV
+          else
+            echo "FLAVOR=public" >> $GITHUB_ENV; echo "TASK=assemblePublicRelease" >> $GITHUB_ENV
+            echo "APK_NAME=RedMagicTweaks" >> $GITHUB_ENV; echo "TITLE=RedMagic Tweaks" >> $GITHUB_ENV
+          fi
+          if [ ! -d app/src/private ] && [ "${GITHUB_REF_TYPE}" = tag ] && [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Add the KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD repository secrets before releasing: a release signed with a throwaway key would not update over the next one."
+            exit 1
+          fi
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "RMTWEAKS_KEYSTORE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
+          fi
+      - name: Build
+        id: build
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          RMTWEAKS_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RMTWEAKS_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RMTWEAKS_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -o pipefail
+          gradle --no-daemon "$TASK" 2>&1 | tee build.log
+      - name: Publish build log (on failure)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          grep -n -E "error:|e: |warning: \[|FAILED|What went wrong|Caused by|\.java:[0-9]+" build.log | head -300 > build-errors.txt || true
+          tail -120 build.log >> build-errors.txt
+          B64=$(base64 -w0 build-errors.txt)
+          SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/ci-logs/last-build-errors.txt?ref=main" --jq .sha 2>/dev/null || true)
+          if [ -n "$SHA" ]; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/ci-logs/last-build-errors.txt" -f message="ci: build errors ${GITHUB_SHA::7} [skip ci]" -f content="$B64" -f branch=main -f sha="$SHA" >/dev/null
+          else
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/ci-logs/last-build-errors.txt" -f message="ci: build errors ${GITHUB_SHA::7} [skip ci]" -f content="$B64" -f branch=main >/dev/null
+          fi
+      - name: Rename
+        run: |
+          mkdir -p out
+          if [ "$FLAVOR" = public ] && [ "${GITHUB_REF_TYPE}" = tag ]; then V="${GITHUB_REF_NAME}"; else V="$(git rev-parse --short HEAD)"; fi
+          cp app/build/outputs/apk/$FLAVOR/release/app-$FLAVOR-release.apk "out/${APK_NAME}-${V}.apk"
+          ls -l out
+      - name: Release
+        # private: every build is a release; public: only version tags (v1.0.0 ...), with docs/release-notes/<tag>.md
+        if: env.FLAVOR == 'private' || github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$FLAVOR" = private ]; then
+            TAG="rmtweaks-r${{ github.run_number }}"
+            git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt
+            gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --title "$TITLE $TAG" --notes-file notes.txt
+          else
+            TAG="${GITHUB_REF_NAME}"
+            if [ -f "release-notes/$TAG.md" ]; then cp "release-notes/$TAG.md" notes.txt; else git log -1 --format=%B > notes.txt; fi
+            gh release create "$TAG" out/*.apk --verify-tag --title "$TITLE $TAG" --notes-file notes.txt
+          fi
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}-apk
+          path: out/*.apk

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:layout_marginTop="4dp" android:layout_marginBottom="14dp">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:background="@drawable/hero_bg" android:padding="22dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+            <TextView android:id="@+id/hero_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="@string/app_name" android:textColor="@color/text" android:textSize="26sp" android:textStyle="bold" android:letterSpacing="-0.02" />
+            <TextView android:id="@+id/status_pill" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="12sp" android:textStyle="bold" android:background="@drawable/pill"
+                android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" />
+        </LinearLayout>
+        <TextView android:id="@+id/hero_sub" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textColor="@color/text_dim" android:textSize="13sp" />
+        <LinearLayout android:id="@+id/stats_row" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="18dp">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/stat_on" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/accent" android:textSize="22sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="tweaks on" android:textColor="@color/text_dim" android:textSize="12sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/stat_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="22sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="available" android:textColor="@color/text_dim" android:textSize="12sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/stat_root" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="22sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="root" android:textColor="@color/text_dim" android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+        <TextView android:id="@+id/hero_hint" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp" android:textColor="@color/warn" android:textSize="12.5sp" android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="12dp">
+        <com.google.android.material.button.MaterialButton android:id="@+id/btn_sysui" style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Restart System UI" app:icon="@drawable/ic_restart" android:layout_marginEnd="6dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/btn_reboot" style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Reboot" app:icon="@drawable/ic_power" android:layout_marginStart="6dp" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/search_box" android:layout_width="match_parent" android:layout_height="48dp"
+        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="12dp"
+        android:background="@drawable/search_bg" android:paddingStart="14dp" android:paddingEnd="14dp">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_search" android:contentDescription="@null" />
+        <EditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:background="@null" android:hint="Search all tweaks" android:textColorHint="@color/text_dim" android:textColor="@color/text"
+            android:textSize="15sp" android:paddingStart="10dp" android:inputType="text" android:imeOptions="actionSearch" android:maxLines="1" android:importantForAutofill="no" />
+    </LinearLayout>
+</LinearLayout>

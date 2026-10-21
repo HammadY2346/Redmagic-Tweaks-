@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xposed_description">One UI 8 look and tweaks for REDMAGIC phones (NX789J, RedMagic OS 11): status bar, Control Center, lock screen, launcher and recent apps, Game Space, charging and fingerprint animations.</string>
+    <string name="status_active">Module active</string>
+    <string name="status_inactive">Module not active — enable the module in LSPosed and reboot</string>
+    <string name="status_scope_hint">Scope: tick every app listed in LSPosed, then restart the apps (or reboot).</string>
+    <string name="logs">Logs</string>
+    <string name="log_empty">No log entries yet. Open a hooked app (Game Space, Launcher…) and come back.</string>
+    <string name="clear">Clear</string>
+    <string name="share">Share</string>
+    <string name="copy">Copy</string>
+    <string name="restart_hint">Changes apply after the app is restarted (force-stop it or reboot).</string>
+    <string name="enabled_of">%1$d of %2$d enabled</string>
+    <string name="all">All</string>
+    <string name="errors">Errors</string>
+    <string name="hooks">Hooks</string>
+</resources>

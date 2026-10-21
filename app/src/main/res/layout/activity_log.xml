@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical" android:background="@color/bg">
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent" android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg" app:title="@string/logs" app:titleTextColor="@color/text"
+        app:navigationIcon="@drawable/ic_back" app:navigationIconTint="@color/text"
+        app:menu="@menu/log_menu" />
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/filters"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingStart="16dp" android:paddingEnd="16dp"
+        app:singleSelection="true" app:selectionRequired="true" app:singleLine="true">
+        <com.google.android.material.chip.Chip android:id="@+id/f_all" style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/all" android:checked="true" />
+        <com.google.android.material.chip.Chip android:id="@+id/f_err" style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/errors" />
+        <com.google.android.material.chip.Chip android:id="@+id/f_hooks" style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/hooks" />
+    </com.google.android.material.chip.ChipGroup>
+    <TextView android:id="@+id/empty" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="24dp" android:gravity="center" android:textColor="@color/text_dim" android:text="@string/log_empty" android:visibility="gone" />
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/list"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:clipToPadding="false" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingBottom="24dp" />
+</LinearLayout>

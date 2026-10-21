@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical" android:background="@color/bg">
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent" android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg" app:titleTextColor="@color/text"
+        app:navigationIcon="@drawable/ic_back" app:navigationIconTint="@color/text" />
+    <TextView android:id="@+id/hint" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingStart="20dp" android:paddingEnd="20dp" android:paddingBottom="10dp"
+        android:textColor="@color/text_dim" android:textSize="13sp" />
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/grid"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingBottom="24dp" />
+</LinearLayout>

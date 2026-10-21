@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/action_layouts" android:title="Saved layouts" app:showAsAction="never" />
+    <item android:id="@+id/action_by_topic" android:title="Group by topic (new)" android:checkable="true" app:showAsAction="never" />
+    <item android:id="@+id/action_clean" android:title="Clean layout" android:checkable="true" app:showAsAction="never" />
+    <item android:id="@+id/action_restart_all" android:title="Restart all hooked apps" app:showAsAction="never" />
+    <item android:id="@+id/action_restart_sysui" android:title="Restart System UI" app:showAsAction="never" />
+    <item android:id="@+id/action_soft_reboot" android:title="Soft reboot (zygote)" app:showAsAction="never" />
+    <item android:id="@+id/action_reboot" android:title="Reboot" app:showAsAction="never" />
+</menu>

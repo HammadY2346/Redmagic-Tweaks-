@@ -1,0 +1,62 @@
+{
+  "repository": "RisingOS-Revived/android_vendor_rising",
+  "commit": "8e4650c0ba33de2dfcc1f9748bc2dcdc0d819371",
+  "directory": "prebuilts/bootanimation",
+  "animations": [
+    {
+      "id": "rising",
+      "name": "Rising",
+      "file": "bootanimation_rising.zip",
+      "sha256": "79e5c5ec55373224dd935ca77102e3d474f4f93fb8b194c48915f18c0ffb2e92",
+      "bytes": 10068709,
+      "width": 1080,
+      "height": 2400,
+      "fps": 30,
+      "dynamic_colors": false
+    },
+    {
+      "id": "cyberpunk",
+      "name": "Cyberpunk",
+      "file": "bootanimation_cyberpunk.zip",
+      "sha256": "7187c3ac7d8319ab160084a73d247f69daf59d49ab230eba7cec405882191514",
+      "bytes": 23773485,
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "dynamic_colors": false
+    },
+    {
+      "id": "valorant",
+      "name": "Valorant",
+      "file": "bootanimation_valorant.zip",
+      "sha256": "24ac9b2cb306a3946f84af28fcd848313b127152d6e4cbf36432d00225d83104",
+      "bytes": 7223104,
+      "width": 1080,
+      "height": 840,
+      "fps": 30,
+      "dynamic_colors": false
+    },
+    {
+      "id": "google",
+      "name": "Google",
+      "file": "bootanimation_google.zip",
+      "sha256": "c8a96eac5fb156784bcdf53e981bcd1074b38a8ac85396b6082980a12e6a4b28",
+      "bytes": 8404191,
+      "width": 960,
+      "height": 2142,
+      "fps": 60,
+      "dynamic_colors": false
+    },
+    {
+      "id": "google_monet",
+      "name": "Google Monet",
+      "file": "bootanimation_google_monet.zip",
+      "sha256": "051ba247fbbf9d152edb6ff9f0ef19f3af6a231739cb7f461e5363a7fa12f8d7",
+      "bytes": 3725631,
+      "width": 1080,
+      "height": 2338,
+      "fps": 60,
+      "dynamic_colors": true
+    }
+  ]
+}

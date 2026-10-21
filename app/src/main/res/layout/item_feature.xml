@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/card"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp" android:clickable="true" android:focusable="true"
+    app:cardBackgroundColor="@color/surface" app:cardCornerRadius="18dp" app:cardElevation="0dp"
+    app:rippleColor="@color/accent_dim" app:strokeWidth="0dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="18dp" android:paddingEnd="14dp" android:paddingTop="14dp" android:paddingBottom="14dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textColor="@color/text" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:id="@+id/desc" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textColor="@color/text_dim" android:textSize="12.5sp" android:layout_marginTop="2dp" />
+                <TextView android:id="@+id/tag" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:textColor="@color/warn" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.06"
+                    android:background="@drawable/pill" android:paddingStart="8dp" android:paddingEnd="8dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:visibility="gone" />
+            </LinearLayout>
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/toggle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="12dp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/choice_row" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="10dp" android:visibility="gone">
+            <ImageView android:id="@+id/thumb" android:layout_width="48dp" android:layout_height="48dp"
+                android:layout_marginEnd="10dp" android:scaleType="fitCenter" android:background="@drawable/pill" android:padding="6dp"
+                android:visibility="gone" android:contentDescription="@null" />
+            <TextView android:id="@+id/value" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:maxLines="2" android:ellipsize="end"
+                android:textColor="@color/accent" android:textSize="13sp" android:textStyle="bold"
+                android:background="@drawable/pill" android:paddingStart="12dp" android:paddingEnd="12dp"
+                android:paddingTop="6dp" android:paddingBottom="6dp" android:visibility="gone" />
+            <ImageView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp"
+                android:src="@drawable/ic_chevron" android:alpha="0.5" android:contentDescription="@null" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

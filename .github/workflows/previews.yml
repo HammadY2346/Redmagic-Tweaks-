@@ -1,0 +1,65 @@
+name: Previews
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/hammad/redmagictweaks/LookPreview.java'
+      - 'app/src/main/java/com/hammad/redmagictweaks/Looks.java'
+      - 'app/src/main/java/com/hammad/redmagictweaks/Presets.java'
+      - 'app/src/main/java/com/hammad/redmagictweaks/xposed/RecentsArt.java'
+      - 'app/src/test/**'
+      - '.github/workflows/previews.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  previews:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Fonts (Poppins for the lock clock, Inter for the System UI font)
+        run: |
+          mkdir -p app/src/main/assets/fonts
+          curl -fsSL -o app/src/main/assets/fonts/oneui_clock.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-SemiBold.ttf || rm -f app/src/main/assets/fonts/oneui_clock.ttf
+          for f in "Inter%5Bopsz,wght%5D.ttf" "Inter%5Bslnt,wght%5D.ttf"; do
+            curl -fsSL -o app/src/main/assets/fonts/oneui_sans.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/$f" && break
+            rm -f app/src/main/assets/fonts/oneui_sans.ttf
+          done
+          ls -l app/src/main/assets/fonts
+      - name: Render
+        run: |
+          set -o pipefail
+          if [ -d app/src/private ]; then T=testPrivateDebugUnitTest; else T=testPublicDebugUnitTest; fi
+          gradle --no-daemon ":app:$T" --tests com.hammad.redmagictweaks.PreviewRenderTest 2>&1 | tee render.log
+      - name: Publish
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          put() {
+            local path="$1" file="$2"
+            local sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=main" --jq .sha 2>/dev/null || true)
+            base64 -w0 "$file" > /tmp/b64
+            if [ -n "$sha" ]; then
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${path}" -f message="ci: previews ${GITHUB_SHA::7} [skip ci]" -F content=@/tmp/b64 -f branch=main -f sha="$sha" >/dev/null
+            else
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${path}" -f message="ci: previews ${GITHUB_SHA::7} [skip ci]" -F content=@/tmp/b64 -f branch=main >/dev/null
+            fi
+          }
+          grep -n -E "preview |Exception|Error|at com.hammad|FAILED|BUILD" render.log | head -200 > render-summary.txt || true
+          tail -60 render.log >> render-summary.txt
+          put ci-logs/previews/render-log.txt render-summary.txt
+          for f in app/build/previews/*.png; do [ -f "$f" ] && put "ci-logs/previews/$(basename "$f")" "$f"; done
+          true

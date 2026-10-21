@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- nubia-ly original fallback for a standard tile absent from this upstream family. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:pathData="M12,2 C9,6 4,11 4,15 A8,8 0,0 0,20,15 C20,11 15,6 12,2 Z M12,5 L12,20" android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="2.8" android:strokeLineCap="round" android:strokeLineJoin="round"/></vector>

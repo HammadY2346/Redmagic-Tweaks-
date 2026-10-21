@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="xposed_scope">
+        <item>cn.nubia.gameassist</item>
+        <item>cn.nubia.gamelauncher</item>
+        <item>cn.nubia.gamehelpmodule</item>
+        <item>cn.nubia.gamelab</item>
+        <item>cn.nubia.gamehighlights</item>
+        <item>com.zte.beautify</item>
+        <item>com.zte.fingerprints</item>
+        <item>com.fingerprint.sensorservice</item>
+        <item>com.zte.mifavor.launcher</item>
+        <item>com.android.systemui</item>
+        <item>com.android.packageinstaller</item>
+        <item>com.android.settings</item>
+        <item>com.android.permissioncontroller</item>
+        <item>com.zte.zgesture</item>
+        <item>com.zte.powersavemode</item>
+        <item>cn.nubia.keymapcenter</item>
+        <item>cn.nubia.colorfullight</item>
+        <item>com.zte.heartyservice</item>
+        <item>cn.nubia.game.magicvoice</item>
+        <item>cn.nubia.touping</item>
+        <item>com.android.nfc</item>
+        <item>com.zte.cn.doubleapp</item>
+        <item>android</item>
+        <!-- the module itself (the "module active" check); the app id differs per build flavour -->
+        <item>@string/module_package</item>
+    </string-array>
+</resources>
