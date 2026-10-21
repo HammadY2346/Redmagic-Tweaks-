@@ -41,9 +41,9 @@ public final class LookPreview {
 
     private static final String TAG = "RMTweaksPreview";
     public static final float SW = 412f, SH = 912f;
-    public static final String LOCK = "lock", SHADE = "shade", CC = "cc", VOLUME = "volume", POWER = "power", BAR = "bar", RECENTS = "recents";
+    public static final String LOCK = "lock", SHADE = "shade", CC = "cc", VOLUME = "volume", POWER = "power", BAR = "bar", RECENTS = "recents", AOD = "aod";
     /** Every screen, in the order the enlarged view shows them. */
-    public static final String[] ALL = {LOCK, SHADE, CC, VOLUME, POWER, RECENTS};
+    public static final String[] ALL = {LOCK, AOD, SHADE, CC, VOLUME, POWER, RECENTS};
 
     /** Keys the painters have read (a choice of one of these changes the picture). */
     private static final Set<String> USED = Collections.synchronizedSet(new HashSet<>());
@@ -57,7 +57,7 @@ public final class LookPreview {
             case "surface": return new String[]{SHADE, VOLUME, POWER};
             case "notifications": return new String[]{SHADE};
             case "volume": return new String[]{VOLUME, POWER};
-            case "lockscreen": return new String[]{LOCK};
+            case "lockscreen": case "aod": return new String[]{LOCK, AOD};
             case "presets": case "looks": return new String[]{LOCK, SHADE, CC};
             case "statusbar": case "sbclock": case "sbicons": case "cosmetics": return new String[]{BAR};
             case "recents": case "home": return new String[]{RECENTS};
@@ -68,6 +68,7 @@ public final class LookPreview {
     public static String title(String screen) {
         switch (screen) {
             case LOCK: return "Lock screen";
+            case AOD: return "Always-on display";
             case SHADE: return "Notifications";
             case CC: return "Control Center";
             case VOLUME: return "Volume keys";
@@ -146,6 +147,7 @@ public final class LookPreview {
         try {
             switch (screen) {
                 case LOCK: paintLock(c, r); break;
+                case AOD: paintAod(c, r); break;
                 case SHADE: paintShade(c, r); break;
                 case CC: paintCc(c, r); break;
                 case VOLUME: paintVolume(c, r); break;
@@ -958,6 +960,57 @@ public final class LookPreview {
         p.setColor(0xFFFFFFFF);
         c.drawCircle(cx, track.bottom - track.height() * fraction, 6, p);
         ccGlyph(c, CcGlyph.SPEAKER, cx, top + 37 + 171 + stockExtra + 12, 22, 0xFFFFFFFF);
+    }
+
+    // ============================================================================================ always-on display
+
+    /** The AOD: a digital clock in the chosen colour and size, date, battery, lunar date and notification icons. */
+    private static void paintAod(Canvas c, R r) {
+        Looks.V v = r.v;
+        Paint p = r.gp; p.setStyle(Paint.Style.FILL); p.setShader(null);
+        p.setColor(0xFF000000); c.drawRect(0, 0, SW, SH, p);
+        float[] scales = {1f, 0.8f, 0.9f, 1.1f, 1.2f, 1.3f};
+        int sizeChoice = v.choice(AodFeatures.CLOCK_SIZE);
+        float sc = sizeChoice > 0 && sizeChoice < scales.length ? scales[sizeChoice] : 1f;
+        int[] col = AodFeatures.clockColors(r.ctx, v.choice(AodFeatures.CLOCK_COLOR));
+        float cx = SW / 2f, cy = 300;
+        int save = c.save();
+        c.scale(sc, sc, cx, cy);
+        Paint t = new Paint(Paint.ANTI_ALIAS_FLAG);
+        t.setTypeface(r.font(300)); t.setTextSize(96); t.setTextAlign(Paint.Align.CENTER);
+        String time = r.h24 ? "21:41" : "9:41";
+        if (col != null) t.setShader(new LinearGradient(0, cy - 80, 0, cy + 10, col[0], col[1], Shader.TileMode.CLAMP));
+        else t.setColor(0xFFE8E8EC);
+        c.drawText(time, cx, cy, t);
+        int dateMode = v.choice(AodFeatures.LUNAR);
+        text(c, r, "Wednesday, October 21", cx, cy + 44, 18, 500, 0xCCFFFFFF, Paint.Align.CENTER);
+        if (dateMode == 1) text(c, r, "九月初一", cx, cy + 70, 15, 400, 0x99FFFFFF, Paint.Align.CENTER);
+        if (v.choice(AodFeatures.BATTERY) != 2) {
+            float by = cy + (dateMode == 1 ? 100 : 76);
+            Paint b = new Paint(Paint.ANTI_ALIAS_FLAG); b.setColor(0xCCFFFFFF); b.setStyle(Paint.Style.STROKE); b.setStrokeWidth(1.6f);
+            RectF batt = new RectF(cx - 34, by - 9, cx - 12, by + 3);
+            c.drawRoundRect(batt, 3, 3, b);
+            b.setStyle(Paint.Style.FILL); c.drawRoundRect(new RectF(batt.left + 2.5f, batt.top + 2.5f, batt.left + 2.5f + 12, batt.bottom - 2.5f), 1.5f, 1.5f, b);
+            text(c, r, "72%", cx + 6, by + 2, 14, 500, 0xCCFFFFFF, Paint.Align.LEFT);
+        }
+        c.restoreToCount(save);
+        if (v.choice(AodFeatures.NOTIFICATIONS) != 2) {
+            int[] counts = {4, 3, 6, 8};
+            int nc = v.choice(AodFeatures.NOTIF_COUNT);
+            int n = nc > 0 && nc < counts.length ? counts[nc] : 4;
+            float[] isz = {1f, 0.8f, 1.2f, 1.4f};
+            int zc = v.choice(AodFeatures.NOTIF_SIZE);
+            float size = 26 * (zc > 0 && zc < isz.length ? isz[zc] : 1f), gap = 10;
+            boolean app = v.on(AodFeatures.NOTIF_APP_ICONS);
+            int[] apps = {0xFF25D366, 0xFFE1306C, 0xFF1DA1F2, 0xFFFF0000, 0xFF4285F4, 0xFFFFC107, 0xFF8E44AD, 0xFF00ACC1};
+            float total = n * size + (n - 1) * gap, x = cx - total / 2f, y = SH - 330;
+            Paint ip = new Paint(Paint.ANTI_ALIAS_FLAG);
+            for (int i = 0; i < n; i++) {
+                float ix = x + i * (size + gap) + size / 2f;
+                if (app) { ip.setColor(apps[i % apps.length]); c.drawRoundRect(new RectF(ix - size / 2, y - size / 2, ix + size / 2, y + size / 2), size * 0.28f, size * 0.28f, ip); }
+                else { ip.setColor(0x33FFFFFF); c.drawCircle(ix, y, size / 2f, ip); ip.setColor(0xE6FFFFFF); c.drawCircle(ix, y, size * 0.18f, ip); }
+            }
+        }
     }
 
     /** A few app icons and a dock so the volume / power screens read as "over the home screen". */

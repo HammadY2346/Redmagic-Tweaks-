@@ -421,9 +421,20 @@ final class FrameworkHooks {
         if (gsf != null) {
             XC_MethodHook raise = new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
-                    if (!Cfg.on(FrameworkFeatures.AUTO_RATE_MAX)) return;
                     try {
                         int mode = p.args.length > 0 && p.args[0] instanceof Integer ? (Integer) p.args[0] : XposedHelpers.getStaticIntField(gsf, "sRefreshRateMode");
+                        if (mode == 5) {
+                            // the 165 Hz choice (refresh_rate_mode 5): firmware without that mode (RedMagic OS 10, whose
+                            // Settings gets the choice from SettingsHooks) runs it at the panel's highest rate
+                            int hi = XposedHelpers.getStaticIntField(ctl, "sHighestFps");
+                            if (hi > 144 && XposedHelpers.getStaticIntField(gsf, "sSettingFps") != hi) {
+                                XposedHelpers.setStaticIntField(gsf, "sSettingFps", hi);
+                                if (p.method.getName().equals("getSettingFps")) p.setResult(hi);
+                                Lx.i("RefreshRate: fixed mode 5 -> " + hi + " Hz");
+                            }
+                            return;
+                        }
+                        if (!Cfg.on(FrameworkFeatures.AUTO_RATE_MAX)) return;
                         if (mode != 0) return;                                   // only the Auto mode
                         if (XposedHelpers.getStaticIntField(gsf, "sLockRefreshRateState") == 1) return;
                         int highest = XposedHelpers.getStaticIntField(ctl, "sHighestFps");

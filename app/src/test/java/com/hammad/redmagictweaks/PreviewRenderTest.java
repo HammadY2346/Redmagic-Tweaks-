@@ -63,6 +63,11 @@ public class PreviewRenderTest {
             for (Object[] kv : combos[i]) v = Looks.with(v, (String) kv[0], kv[1]);
             save(LookPreview.row(ctx, v, new String[]{LookPreview.VOLUME, LookPreview.POWER}, 310), new File(out, "10-oneui-volume-power-" + i + ".png"));
         }
+        // always-on display: stock and customized
+        Looks.V aod = Looks.with(Looks.with(Looks.with(Looks.with(Looks.with(stock, AodFeatures.CLOCK_COLOR, 13), AodFeatures.CLOCK_SIZE, 4),
+                AodFeatures.NOTIF_COUNT, 2), AodFeatures.NOTIF_APP_ICONS, Boolean.TRUE), AodFeatures.LUNAR, 1);
+        save(LookPreview.row(ctx, stock, new String[]{LookPreview.AOD}, 150), new File(out, "12-aod-stock.png"));
+        save(LookPreview.row(ctx, aod, new String[]{LookPreview.AOD}, 150), new File(out, "12-aod-custom.png"));
         String[] keys = {SurfaceFeatures.VOL_ONEUI_WIDTH, SurfaceFeatures.VOL_ONEUI_HEIGHT, SurfaceFeatures.VOL_ONEUI_SHAPE, SurfaceFeatures.VOL_ONEUI_COLOR,
                 SurfaceFeatures.VOL_ONEUI_TRACK, SurfaceFeatures.VOL_ONEUI_ICON, SurfaceFeatures.PWR_ONEUI_SIZE, SurfaceFeatures.PWR_ONEUI_SHAPE,
                 SurfaceFeatures.PWR_ONEUI_COLORS, SurfaceFeatures.PWR_ONEUI_LABELS};

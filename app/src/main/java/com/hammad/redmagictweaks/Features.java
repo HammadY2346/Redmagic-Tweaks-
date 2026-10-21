@@ -262,7 +262,7 @@ public final class Features {
 
     public static final Section[] SECTIONS = {
         Presets.SECTION, GAME, LAUNCHER, RecentsFeatures.SECTION, THEME, ThemeStoreFeatures.SECTION, FingerprintCustomFeatures.SECTION,
-        SYSTEMUI, LockFeatures.SECTION, StatusBarFeatures.SECTION, ClockFeatures.SECTION, IconPackFeatures.SECTION,
+        SYSTEMUI, LockFeatures.SECTION, AodFeatures.SECTION, StatusBarFeatures.SECTION, ClockFeatures.SECTION, IconPackFeatures.SECTION,
         QsFeatures.SECTION, SurfaceFeatures.SECTION, CosmeticsFeatures.SECTION, BootAnimFeatures.SECTION,
         FrameworkFeatures.SECTION, SettingsFeatures.SECTION, ExtrasFeatures.SECTION, INSTALLER
     };

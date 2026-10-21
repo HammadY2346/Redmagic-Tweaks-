@@ -79,6 +79,7 @@ public final class Entry implements IXposedHookLoadPackage, IXposedHookZygoteIni
                     run("Font", () -> FontHooks.install(lp.classLoader));
                     run("Charging", () -> SystemUiHooks.install(lp.classLoader));
                     run("LockScreen", () -> LockHooks.install(lp.classLoader));
+                    run("AOD", () -> AodHooks.install(lp.classLoader));
                     run("OneUiLock", () -> OneUiLockHooks.install(lp.classLoader));
                     run("StatusBar", () -> StatusBarHooks.install(lp.classLoader));
                     run("FingerprintUi", () -> FingerprintUiHooks.install(lp.classLoader));

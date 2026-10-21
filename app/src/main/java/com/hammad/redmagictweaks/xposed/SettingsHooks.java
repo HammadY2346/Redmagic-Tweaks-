@@ -35,6 +35,7 @@ final class SettingsHooks {
         usb(cl);
         adbInstall(cl);
         networkType(cl);
+        try { SettingsRates.install(cl); } catch (Throwable e) { Lx.e("Settings: refresh-rate page", e); }
         Lx.i("Settings: hooks ready");
     }
 

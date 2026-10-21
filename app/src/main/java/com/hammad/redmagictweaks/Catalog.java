@@ -144,7 +144,7 @@ public final class Catalog {
             case "qs": return "quickpanel";
             case "surface": return "notifications";
             case "fpcustom": return "fingerprint";
-            case "lockscreen": case "theme": return "lockscreen";
+            case "lockscreen": case "theme": case "aod": return "lockscreen";
             case "systemui": return "charging";
             case "launcher": case "recents": return "home";
             case "game": return "gaming";
@@ -200,7 +200,9 @@ public final class Catalog {
             .group("One UI clock", "lock_oneui_clock", "lock_oneui_face", "lock_oneui_size", "lock_oneui_position", "lock_oneui_tiles", "lock_oneui_shortcuts")
             .group("Lock screen", "lock_hide_statusbar", "lock_hide_unlock_hint", "lock_hide_weather_widget", "lock_hide_alarm_widget", "lock_hide_battery_widget",
                     "lock_double_tap_sleep", "lock_double_tap_statusbar", "fw_no_72h_lock")
-            .group("Always-on display", "lock_aod_seconds", "lock_aod_datetime")
+            .group("Always-on display", "aod_brightness", "aod_tap_time", "aod_low_battery", "aod_power_saving", "aod_burn_in", "aod_fade")
+            .group("AOD clock and lines", "aod_clock_color", "aod_clock_size", "lock_aod_seconds", "lock_aod_datetime", "aod_battery", "aod_lunar")
+            .group("AOD notifications", "aod_notifications", "aod_notif_count", "aod_notif_size", "aod_notif_app_icons")
             .group("Stock clock and date", "~lock_clock_hide", "~lock_clock_size", "~lock_clock_opacity", "~lock_clock_dx", "~lock_clock_dy", "~lock_clock_rot",
                     "~lock_date_hide", "~lock_date_size", "~lock_date_opacity", "~lock_date_dx", "~lock_date_dy", "~lock_date_rot");
         b.cat("fingerprint", "Fingerprint", "Unlock animation, icon and collab styles", R.drawable.ic_fingerprint, false)
