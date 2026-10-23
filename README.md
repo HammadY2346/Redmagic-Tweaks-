@@ -13,16 +13,25 @@ explains every setting in place, and a **fail-safe** brings the phone back to st
   <img src="docs/images/app-3-status-bar.png" width="32%" alt="Status bar category with its live preview">
 </p>
 
-> **v1.1:** the One UI layouts are gone (the one-tap One UI 8 look, the One UI Control Center layout, lock screen and AOD
-> clocks, volume panel, power menu and font). Every customization stays. v1.0 with the One UI layouts is no longer
-> offered.
+**Latest: [v1.1.0](../../releases/latest)**
+
+## What's new in v1.1
+
+- **The One UI layouts are gone**: the one-tap One UI 8 look, the One UI Control Center layout, the One UI lock screen
+  and AOD clocks, the One UI volume panel and power menu, and the One UI System UI font. If you used them, the app
+  resets those settings once after the update and asks you to restart System UI, which brings back the stock look.
+- **Every customization stays**: Control Center columns, gaps, sliders and colours, the lock screen clock and date (now
+  with colours), the volume bar and power menu shapes, the status bar, notifications, AOD, launcher, recent apps styles,
+  fingerprint and charging animations, Game Space and system tweaks.
+- **Logs**: a Record logs switch (off = nothing is recorded), and Share as .txt / Save .txt to Download.
+- v1.0 is no longer offered. Install v1.1 over it; everything except the One UI layouts stays as you set it.
 
 ## Supported phones
 
 | Phone | Firmware | Status |
 |---|---|---|
-| REDMAGIC 10S Pro / 10 Pro (NX789J) | **China firmware, RedMagic OS 11.0.11** (Android 16) | Developed and tested on it |
-| REDMAGIC 10S Pro / 10 Pro (NX789J) | Global / EEA RedMagic OS 11 (Android 16) | Every hook checked against the global firmware (11.0.4). The few tweaks that only work on China firmware (Phone Manager, Magic Voice, screen cast extras, the Chinese installer) are hidden there. Reports are welcome |
+| REDMAGIC 10S Pro / 10 Pro (NX789J) | **Global / EEA RedMagic OS 11** (Android 16) | Supported. Every hook is checked against the global firmware (11.0.4) |
+| REDMAGIC 10S Pro / 10 Pro (NX789J) | China RedMagic OS 11.0.11 (Android 16) | Works (the app was developed on it). The build offers the same tweaks as on global; the few China-only extras (Phone Manager, Magic Voice, screen cast extras, the Chinese installer) are not included |
 | Other REDMAGIC models | RedMagic OS 10 / 11 | Not tested. Most hooks look classes up by name and skip what they can't find, so a tweak may simply do nothing |
 
 ## Requirements
@@ -51,12 +60,12 @@ explains every setting in place, and a **fail-safe** brings the phone back to st
 | **Fingerprint** | Unlock animations (stock, collab and originals) · import your own frames · idle icon styles, colours and size · collaboration styles |
 | **Volume & power** | Volume bar width, height, shape, colours and gradients, icon place, level number, side, position and timeout · power menu button finish, position, layout and dim · no high-volume warning · volume in Do Not Disturb |
 | **Charging & battery** | Charging animations (stock, collab and four originals) · import your own frames · charging readout on the lock screen · ultra power saving · charge separation |
-| **Display & performance** | Auto refresh rate up to 165 Hz · force refresh rate per app · screen timeout 30 min / never · small windows for every app |
+| **Display & performance** | Auto refresh rate up to the panel's top rate (144 Hz stock, 165 Hz with a panel mod on Android 16) · force refresh rate in every app, 60 Hz in video apps · screen timeout 30 min / never · small windows for every app |
 | **Home, drawer & recents** | Horizontal paged app drawer · grid, dock and labels · **recent apps styles: carousel, stack, cover flow, grid, list** |
 | **Gaming** | Game Assist in every app · macros and combos in any game · Super Resolution with Diablo mode · key mapping and fan light options |
 | **Fonts, themes & boot** | Lock clock font import · boot animations (RisingOS set plus your own) · Theme Store collaboration packs |
-| **System & apps** | Settings extras · installer · gestures · NFC · app cloning · screen cast · airplane mode keeps Wi-Fi / Bluetooth · block ZTE telemetry |
-| **Advanced** | Screenshots in protected apps, touches through overlays, no thermal throttling, phantom-process limit off and other tweaks that need care |
+| **System & apps** | Settings extras · gestures · NFC · app cloning · airplane mode keeps Wi-Fi / Bluetooth · block ZTE telemetry |
+| **Advanced** | Screenshots in protected apps, no thermal throttling of the refresh rate, phantom-process limit off and other tweaks that need care |
 
 ## If something goes wrong
 
@@ -70,6 +79,7 @@ RedMagic Tweaks has a fail-safe:
   - `su -c setprop persist.redmagictweaks.safe 1` from ADB or Termux, then reboot (set it to `0` to turn safe mode off)
   - untick RedMagic Tweaks in LSPosed and reboot
   - boot into your root manager's safe mode, which turns off LSPosed and every module
+- **Logs**: turn on Record logs in the app, reproduce the problem, then Share as .txt and attach it to an issue.
 
 ## Building
 
