@@ -1,4 +1,4 @@
-43:BUILD SUCCESSFUL in 42s
+43:BUILD SUCCESSFUL in 48s
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :app:preBuild UP-TO-DATE
@@ -10,21 +10,21 @@ Daemon will be stopped at the end of the build
 > Task :app:mapPublicDebugSourceSetPaths
 > Task :app:generatePublicDebugResources
 > Task :app:packagePublicDebugResources
+> Task :app:mergePublicDebugResources
 > Task :app:createPublicDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksPublicDebug
-> Task :app:mergePublicDebugResources
 > Task :app:processPublicDebugMainManifest
 > Task :app:processPublicDebugManifest
 > Task :app:prePublicDebugUnitTestBuild UP-TO-DATE
-> Task :app:javaPreCompilePublicDebugUnitTest
 > Task :app:parsePublicDebugLocalResources
+> Task :app:javaPreCompilePublicDebugUnitTest
 > Task :app:mergePublicDebugShaders
+> Task :app:processPublicDebugManifestForPackage
 > Task :app:compilePublicDebugShaders NO-SOURCE
 > Task :app:generatePublicDebugAssets UP-TO-DATE
 > Task :app:mergePublicDebugAssets
 > Task :app:processPublicDebugJavaRes NO-SOURCE
 > Task :app:processPublicDebugUnitTestJavaRes NO-SOURCE
-> Task :app:processPublicDebugManifestForPackage
 > Task :app:processPublicDebugResources
 
 > Task :app:compilePublicDebugJavaWithJavac
@@ -33,13 +33,13 @@ Note: Recompile with -Xlint:deprecation for details.
 Note: /home/runner/work/Redmagic-Tweaks-/Redmagic-Tweaks-/app/src/main/java/com/hammad/redmagictweaks/xposed/ThemeStoreHooks.java uses unchecked or unsafe operations.
 Note: Recompile with -Xlint:unchecked for details.
 
-> Task :app:bundlePublicDebugClassesToRuntimeJar
 > Task :app:bundlePublicDebugClassesToCompileJar
+> Task :app:bundlePublicDebugClassesToRuntimeJar
 > Task :app:packagePublicDebugUnitTestForUnitTest
 > Task :app:compilePublicDebugUnitTestJavaWithJavac
 > Task :app:generatePublicDebugUnitTestConfig
 > Task :app:testPublicDebugUnitTest
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792589312057.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792779524483.json
 
-BUILD SUCCESSFUL in 42s
+BUILD SUCCESSFUL in 48s
 25 actionable tasks: 25 executed
