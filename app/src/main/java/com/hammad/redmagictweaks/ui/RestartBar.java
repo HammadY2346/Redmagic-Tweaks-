@@ -67,6 +67,11 @@ final class RestartBar {
             s = new StringBuilder("Update installed: ").append(join(parts)).append(parts.size() == 1 ? " needs" : " need").append(" a restart to load it");
             if (reboot > 0) s.append(reboot == 1 ? ", 1 change a reboot" : ", " + reboot + " changes a reboot");
         }
+        if (Pending.rebootForUpdate(a)) {
+            // system_server keeps the old build until a reboot (game view, triggers, boost, refresh rate...)
+            s = new StringBuilder("Update installed: reboot the phone to load it");
+            if (!parts.isEmpty()) s.append(" (Restart only reloads ").append(join(parts)).append("; game and system tweaks need the reboot)");
+        }
         text.setText(s);
         if (!parts.isEmpty()) {
             action.setText("Restart");

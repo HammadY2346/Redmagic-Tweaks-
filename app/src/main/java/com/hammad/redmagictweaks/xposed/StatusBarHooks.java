@@ -71,13 +71,21 @@ final class StatusBarHooks {
 
     /** Int (choice) pref read at most once a second. */
     static final class Choice {
-        private final String key; private long at; private int v;
+        private final String key; private long at; private int v, cv; private boolean custom; private int[] color;
         Choice(String key) { this.key = key; }
         int get() {
             long now = SystemClock.uptimeMillis();
-            if (now - at > 1000) { v = Cfg.choice(key); at = now; }
+            if (now - at > 1000) {
+                v = Cfg.choice(key); custom = Cfg.hasNum(key); cv = custom ? Cfg.num(key, 0) : 0;
+                color = key.endsWith("color") ? Cfg.color(key) : null;   // colour options (ColorPick)
+                at = now;
+            }
             return v;
         }
+        /** The custom colour (ColorPick) when one is in use, else null. */
+        int[] color() { get(); return color; }
+        /** The typed value (Features.Num) when one is in use, else the preset's value. */
+        int value(int preset) { get(); return custom ? cv : preset; }
     }
 
     private static Handler bgHandler;
@@ -381,12 +389,17 @@ final class StatusBarHooks {
 
     static int interval(String key, int[] table) {
         int i = Cfg.choice(key);
-        return i >= 0 && i < table.length ? table[i] : table[0];
+        return Math.max(1, Cfg.num(key, i >= 0 && i < table.length ? table[i] : table[0]));   // preset or typed seconds
     }
 
     // ------------------------------------------------------------------ network speed
 
     private static final Choice netStyle = new Choice(StatusBarFeatures.SB_NET_STYLE);
+    private static final Choice netColor = new Choice(StatusBarFeatures.SB_NET_COLOR), netDx = new Choice(StatusBarFeatures.SB_NET_DX),
+            netDy = new Choice(StatusBarFeatures.SB_NET_DY), clockColor = new Choice(com.hammad.redmagictweaks.ClockFeatures.CLK_COLOR);
+    /** The colour System UI last gave a speed TextView (put back when the colour returns to stock). */
+    private static final java.util.Map<TextView, Integer> netStockColor = new java.util.WeakHashMap<>();
+    private static final java.util.Map<View, Boolean> netMoved = new java.util.WeakHashMap<>();
     private static long lastTx, lastRx, lastAt; private static double txRate, rxRate;
 
     private static void netSpeed(ClassLoader cl) {
@@ -439,8 +452,28 @@ final class StatusBarHooks {
             H.hook(H.find(mfv, "refreshNetSpeedView"), new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     try { styleNetView(p.thisObject); } catch (Throwable t) { Lx.e("StatusBar: net speed view refresh", t); }
+                    try { netLook(p.thisObject, false); } catch (Throwable t) { Lx.e("StatusBar: net speed look", t); }
                 }
             });
+            // colour and nudge: System UI tints the text in onDarkChanged(ArrayList, float, int) / setStaticDrawableColor /
+            // setDecorColor (same on China and global); the text changes in applyNetSpeedState / updateState
+            XC_MethodHook tinted = new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam p) {
+                    try { netLook(p.thisObject, true); } catch (Throwable t) { Lx.e("StatusBar: net speed colour", t); }
+                }
+            };
+            XC_MethodHook updated = new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam p) {
+                    try { netLook(p.thisObject, false); } catch (Throwable t) { Lx.e("StatusBar: net speed look", t); }
+                }
+            };
+            int nl = 0;
+            nl += H.hookAll(mfv, "onDarkChanged", tinted);
+            nl += H.hookAll(mfv, "setStaticDrawableColor", tinted);
+            nl += H.hookAll(mfv, "setDecorColor", tinted);
+            nl += H.hookAll(mfv, "applyNetSpeedState", updated);
+            nl += H.hookAll(mfv, "updateState", updated);
+            Lx.i("StatusBar: net speed colour / nudge hooks " + nl);
         }
         Class<?> policy = H.cls(cl, "com.zte.feature.speed.StatusBarNetSpeedPolicy");
         Class<?> state = H.cls(cl, "com.zte.feature.speed.StatusBarNetSpeedPolicy$NetSpeedState");
@@ -457,6 +490,43 @@ final class StatusBarHooks {
                 }
             });
         }
+    }
+
+    /** Network speed colour (StatusBarFeatures.NET_COLORS, 0 = stock) as ARGB, or 0 for the stock tint. */
+    private static int netColorValue() {
+        int c = netColor.get();
+        int[] values = com.hammad.redmagictweaks.ClockFeatures.COLOR_VALUES;
+        if (netColor.color() != null) return netColor.color()[0];
+        if (c == 1) { int k = clockColor.get(); if (clockColor.color() != null) return clockColor.color()[0]; return k > 0 && k < values.length ? values[k] : 0; }
+        return c >= 2 && c - 1 < values.length ? values[c - 1] : 0;
+    }
+
+    /** Colour and nudge of the network speed readout. {@code stockJustSet}: System UI has just tinted the text. */
+    private static void netLook(Object view, boolean stockJustSet) {
+        TextView text = (TextView) XposedHelpers.getObjectField(view, "mSpeedText");
+        TextView unit = (TextView) XposedHelpers.getObjectField(view, "mSpeedUnit");
+        View group = (View) XposedHelpers.getObjectField(view, "mSpeedViewGroup");
+        int color = netColorValue();
+        for (TextView t : new TextView[]{text, unit}) {
+            if (t == null) continue;
+            if (stockJustSet) netStockColor.put(t, t.getCurrentTextColor());
+            if (color != 0) {
+                if (!netStockColor.containsKey(t)) netStockColor.put(t, t.getCurrentTextColor());
+                if (t.getCurrentTextColor() != color) t.setTextColor(color);
+            } else {
+                Integer st = netStockColor.remove(t);
+                if (st != null && !stockJustSet && t.getCurrentTextColor() != st) t.setTextColor(st);
+            }
+        }
+        if (group == null) return;
+        int ix = netDx.get(), iy = netDy.get();
+        int dx = netDx.value(StatusBarFeatures.NET_NUDGE_X_DP[ix > 0 && ix < StatusBarFeatures.NET_NUDGE_X_DP.length ? ix : 0]);
+        int dy = netDy.value(StatusBarFeatures.NET_NUDGE_Y_DP[iy > 0 && iy < StatusBarFeatures.NET_NUDGE_Y_DP.length ? iy : 0]);
+        if (dx == 0 && dy == 0 && netMoved.remove(group) == null) return;
+        float d = group.getResources().getDisplayMetrics().density;
+        group.setTranslationX(dx * d);
+        group.setTranslationY(dy * d);
+        if (dx != 0 || dy != 0) netMoved.put(group, Boolean.TRUE);
     }
 
     private static void styleNetView(Object view) {

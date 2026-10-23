@@ -59,6 +59,14 @@ public final class RecentsArt {
         public boolean moves() { return style == CAROUSEL || style == STACK || style == COVERFLOW; }
     }
 
+    /** As below, with typed values (Features.Num): corners in dp, size in %; -1 = use the choice. */
+    public static Look resolve(int style, int header, int clear, int corners, int size, int cornersDp, int sizePct) {
+        Look l = resolve(style, header, clear, corners, size);
+        if (cornersDp >= 0) l.cornerDp = Math.max(0.5f, Math.min(64, cornersDp));     // 0 typed = square (0 alone means stock)
+        if (sizePct > 0) l.size = Math.max(0.5f, Math.min(1f, sizePct / 100f));
+        return l;
+    }
+
     public static Look resolve(int style, int header, int clear, int corners, int size) {
         Look l = new Look();
         l.style = style >= 0 && style < STYLES.length ? style : STOCK;

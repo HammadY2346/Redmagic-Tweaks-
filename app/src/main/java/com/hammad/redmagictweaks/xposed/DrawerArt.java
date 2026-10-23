@@ -53,11 +53,17 @@ public final class DrawerArt {
     /** Resolved folder-cell style (global choices, optionally overridden per folder). */
     public static final class Style {
         public int shape, color, opacity, grid;
+        /** A typed opacity in % (Features.Num), or -1 for the opacity choice. */
+        public int opacityPct = -1;
+        /** A custom tile colour (ColorPick), used instead of {@link #color} when {@link #hasCustom}. */
+        public int custom; public boolean hasCustom;
+        public Style withCustom(int[] c) { if (c != null) { custom = c[0]; hasCustom = true; } return this; }
         public Style(int shape, int color, int opacity, int grid) {
             this.shape = clamp(shape, SHAPES.length); this.color = clamp(color, COLORS.length);
             this.opacity = clamp(opacity, OPACITIES.length); this.grid = clamp(grid, GRIDS.length);
         }
-        public String key() { return shape + ":" + color + ":" + opacity + ":" + grid; }
+        public Style withOpacityPct(int pct) { this.opacityPct = pct < 0 ? -1 : Math.min(100, pct); return this; }
+        public String key() { return shape + ":" + color + ":" + opacity + ":" + grid + (opacityPct >= 0 ? ":o" + opacityPct : "") + (hasCustom ? ":c" + Integer.toHexString(custom) : ""); }
     }
 
     static int clamp(int i, int n) { return i < 0 || i >= n ? 0 : i; }
@@ -66,17 +72,26 @@ public final class DrawerArt {
      *  its mini icons are clipped to the same proportion. */
     private static final float ONE_UI_RADIUS = 0.26f;
 
+    /** ARGB of a COLORS preset. */
+    public static int colorArgb(int i) { return COLOR_ARGB[clamp(i, COLOR_ARGB.length)]; }
+
     public static int tileColor(Style s) {
-        int c = COLOR_ARGB[s.color];
-        int a = Math.round(Color.alpha(c) * OPACITY_F[s.opacity]);
+        int c = s.hasCustom ? s.custom : COLOR_ARGB[s.color];
+        int a = Math.round(Color.alpha(c) * (s.opacityPct >= 0 ? s.opacityPct / 100f : OPACITY_F[s.opacity]));
         return (c & 0x00FFFFFF) | (a << 24);
     }
 
     /** Text colour that reads on this tile (used for the count badge). */
-    private static boolean lightTile(Style s) { int c = COLOR_ARGB[s.color]; return s.color == 0 || s.color == 12 || Color.luminance(c | 0xFF000000) > 0.55f; }
+    private static boolean lightTile(Style s) {
+        if (s.hasCustom) return (s.custom >>> 24) < 0x80 || Color.luminance(s.custom | 0xFF000000) > 0.55f;
+        int c = COLOR_ARGB[s.color]; return s.color == 0 || s.color == 12 || Color.luminance(c | 0xFF000000) > 0.55f;
+    }
 
     public static float viewRadiusDp(int choice) { return VIEW_RADIUS_DP[clamp(choice, VIEW_RADII.length)]; }
     public static int viewColumns(int choice) { return VIEW_COLS_N[clamp(choice, VIEW_COLS.length)]; }
+    /** In the launcher: the opened-folder corners / columns from the choice, or the typed value (Features.Num). */
+    static float viewRadiusNow() { return Cfg.hasNum(KEY_VIEW_RADIUS) ? Math.max(0, Cfg.num(KEY_VIEW_RADIUS, 0)) : viewRadiusDp(Cfg.choice(KEY_VIEW_RADIUS)); }
+    static int viewColumnsNow() { return Cfg.hasNum(KEY_VIEW_COLS) ? Math.max(1, Cfg.num(KEY_VIEW_COLS, 4)) : viewColumns(Cfg.choice(KEY_VIEW_COLS)); }
     /** Opened-folder card colour / text colour for a background choice. */
     public static int viewCardColor(int choice) { switch (clamp(choice, VIEW_BGS.length)) { case 1: return 0xF7F5F5F7; case 2: return 0xB3101014; default: return 0xF2202124; } }
     public static int viewTextColor(int choice) { return clamp(choice, VIEW_BGS.length) == 1 ? 0xFF202124 : 0xFFFFFFFF; }

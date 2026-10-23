@@ -56,6 +56,15 @@ public final class Pending {
         put(c, s);
     }
 
+    /** system_server still runs an older build: only a reboot loads the installed one (games, refresh rate, framework). */
+    public static void addRebootUpdate(Context c) {
+        Set<String> s = get(c);
+        s.add("r|" + UPDATE);
+        put(c, s);
+    }
+
+    public static boolean rebootForUpdate(Context c) { return get(c).contains("r|" + UPDATE); }
+
     /** True when the waiting restarts include loading a module update. */
     public static boolean update(Context c) {
         for (String e : get(c)) if (e.endsWith("|" + UPDATE)) return true;

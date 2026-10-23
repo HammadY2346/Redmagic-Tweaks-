@@ -70,6 +70,8 @@ public class CategoryActivity extends BaseActivity {
         Row(int type, String text, Catalog.Item item, boolean first, boolean last) { this.type = type; this.text = text; this.item = item; this.first = first; this.last = last; }
     }
     private final List<Row> rows = new ArrayList<>();
+    /** New settings shown on this visit: they keep their "NEW" badge until the page is left (WhatsNew). */
+    private final java.util.Set<String> newThisVisit = new java.util.HashSet<>();
 
     // ============================================================================================ file pickers
 
@@ -144,10 +146,15 @@ public class CategoryActivity extends BaseActivity {
         tb.getMenu().findItem(R.id.action_advanced).setChecked(UiPrefs.advanced(this));
         tb.getMenu().findItem(R.id.action_detailed).setChecked(UiPrefs.detailed(this));
         tb.getMenu().findItem(R.id.action_reset_page).setVisible(q == null);
+        setupGlobal(tb.getMenu());
+        setupOneUiHome(tb.getMenu());
         tb.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_oneui_home) { toggleOneUiHome(item); return true; }
             if (item.getItemId() == R.id.action_advanced) { toggleAdvanced(item); return true; }
             if (item.getItemId() == R.id.action_detailed) { toggleDetailed(item); return true; }
+            if (item.getItemId() == R.id.action_global) { toggleGlobal(item); return true; }
             if (item.getItemId() == R.id.action_reset_page) { resetPage(); return true; }
+            if (item.getItemId() == R.id.action_new_badges) { pickNewBadges(); return true; }
             return false;
         });
         screens = q != null ? null : LookPreview.screensFor(cat.id);
@@ -206,7 +213,7 @@ public class CategoryActivity extends BaseActivity {
     /** Values the preview shows: the live settings (the Looks page: the One UI 8 look over them). */
     private Looks.V previewValues() {
         Looks.V live = Looks.live(this);
-        return "looks".equals(cat.id) ? Looks.with(live, Presets.ONE_UI) : live;
+        return "looks".equals(cat.id) && !com.hammad.redmagictweaks.FlavorBits.leftOut("preset_one_ui") ? Looks.with(live, Presets.ONE_UI) : live;
     }
 
     private int previewWidthDp() { return Math.max(240, getResources().getConfiguration().screenWidthDp - 56); }
@@ -240,9 +247,35 @@ public class CategoryActivity extends BaseActivity {
 
     // ============================================================================================ rows
 
+    /** The row's name, with a small "CN" mark on China-only tweaks (shown while all tweaks are listed) and a "NEW" pill. */
+    private CharSequence titleOf(Features.Feature f) {
+        CharSequence t = f.title;
+        if (com.hammad.redmagictweaks.Region.cnOnly(f.key)) {
+            android.text.SpannableString s = new android.text.SpannableString(f.title + "  CN");
+            int a = f.title.length() + 2, b = s.length();
+            s.setSpan(new android.text.style.ForegroundColorSpan(getColor(R.color.accent)), a, b, 0);
+            s.setSpan(new android.text.style.RelativeSizeSpan(0.72f), a, b, 0);
+            s.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), a, b, 0);
+            t = s;
+        }
+        return showNew(f) ? com.hammad.redmagictweaks.WhatsNew.withPill(this, t, "NEW") : t;
+    }
+
+    /** A new setting on screen: it counts as seen (first-seen time stored) but keeps its badge for this visit. */
+    private boolean showNew(Features.Feature f) {
+        if (newThisVisit.contains(f.key)) return UiPrefs.newBadges(this) != 4;
+        if (!com.hammad.redmagictweaks.WhatsNew.isNew(this, f)) return false;
+        newThisVisit.add(f.key);
+        UiPrefs.markSeen(this, f.key);
+        return true;
+    }
+
     /** Text of the current value of a choice, or null for switches and actions. */
     private String valueText(Catalog.Item it) {
         Features.Feature f = it.feature;
+        if (f.type == Features.Type.CHOICE && Catalog.hasNum(this, it)) return f.num.format(Catalog.num(this, it));
+        if (f.type == Features.Type.CHOICE && Catalog.hasColor(this, it))
+            return "Custom · " + com.hammad.redmagictweaks.ColorPick.label(Catalog.color(this, it), com.hammad.redmagictweaks.ColorPick.spec(f.key).alpha);
         if (f.type == Features.Type.CHOICE) return f.choices[Catalog.choice(this, it)];
         if (f.type != Features.Type.ACTION) return null;
         if (Features.CHARGE_IMPORT.equals(f.key)) { int n = Frames.count(this); return n == 0 ? "Pick a folder" : n + " frames"; }
@@ -250,8 +283,12 @@ public class CategoryActivity extends BaseActivity {
         if (CosmeticsFeatures.COS_FONT_IMPORT.equals(f.key)) return Frames.hasFont(this) ? "Imported" : "Pick a file";
         if (BootAnimFeatures.BOOTANIM_IMPORT.equals(f.key)) return BootAnim.customFile(this).isFile() ? "Imported" : "Pick a .zip";
         if (BootAnimFeatures.BOOTANIM_STATUS.equals(f.key)) return "Check";
+        if (com.hammad.redmagictweaks.LockFeatures.VIDEO.equals(f.key)) return com.hammad.redmagictweaks.LockVideo.label(this);
         if (f.key.startsWith("preset_")) return f.key.startsWith("preset_one_ui") ? "Preview and apply" : "Preview and reset";
         if (Catalog.SAVED_LAYOUTS.equals(f.key)) { int n = com.hammad.redmagictweaks.LayoutStore.all(this).size(); return n == 0 ? "None yet" : n + " saved"; }
+        if (Features.LAUNCHER_ICON_PACK.equals(f.key)) return IconPackPicker.label(this);
+        if (Features.GAME_VIEW_GAMES.equals(f.key)) return GameViewPicker.label(this);
+        if (Features.GAME_LAUNCH_BOOST_GAMES.equals(f.key)) return GameViewPicker.boostLabel(this);
         return FlavorBits.actionLabel(f.key);
     }
 
@@ -261,12 +298,16 @@ public class CategoryActivity extends BaseActivity {
         else if (CosmeticsFeatures.COS_FONT_IMPORT.equals(f.key)) pickFont.launch(new String[]{"font/ttf", "font/otf", "application/x-font-ttf", "application/octet-stream"});
         else if (BootAnimFeatures.BOOTANIM_IMPORT.equals(f.key)) pickBootZip.launch(new String[]{"application/zip", "application/x-zip-compressed", "application/octet-stream"});
         else if (BootAnimFeatures.BOOTANIM_STATUS.equals(f.key)) bootAnimStatus();
+        else if (com.hammad.redmagictweaks.LockFeatures.VIDEO.equals(f.key)) startActivity(new Intent(this, LockVideoActivity.class));
         else if (Catalog.SAVED_LAYOUTS.equals(f.key)) showLayouts();
         else if (f.key.startsWith("preset_")) {
             boolean apply = f.key.startsWith("preset_one_ui"), launcher = f.key.endsWith("_launcher");
             Object[][] set = launcher ? (apply ? Presets.ONE_UI_LAUNCHER : Presets.STOCK_LAUNCHER) : (apply ? Presets.ONE_UI : Presets.STOCK);
             showPreset(f.title, set, launcher);
-        } else FlavorBits.runAction(this, f.key);
+        } else if (Features.LAUNCHER_ICON_PACK.equals(f.key)) IconPackPicker.show(this, this::refresh);
+        else if (Features.GAME_VIEW_GAMES.equals(f.key)) GameViewPicker.show(this, this::refresh);
+        else if (Features.GAME_LAUNCH_BOOST_GAMES.equals(f.key)) GameViewPicker.showBoost(this, this::refresh);
+        else FlavorBits.runAction(this, f.key);
     }
 
     /** What it does, what it needs, and Reset to stock. */
@@ -276,6 +317,8 @@ public class CategoryActivity extends BaseActivity {
                 : it.restart == Catalog.Restart.REBOOT ? "Needs a reboot to apply." : it.restart == Catalog.Restart.SYSTEM_UI ? "Needs a System UI restart to apply."
                 : "Needs " + RestartBar.appName(it.packages().length > 0 ? it.packages()[0] : "") + " to restart to apply.";
         String desc = it.feature.desc == null ? "" : it.feature.desc;
+        String what = com.hammad.redmagictweaks.WhatsNew.since(it.feature) != null ? com.hammad.redmagictweaks.WhatsNew.what(it.key()) : null;
+        if (what != null) desc = desc.isEmpty() ? what : desc + "\n\n" + what;
         MaterialAlertDialogBuilder b = new MaterialAlertDialogBuilder(this).setTitle(it.feature.title)
                 .setMessage(desc + (need.isEmpty() ? "" : (desc.isEmpty() ? "" : "\n\n") + need))
                 .setPositiveButton(android.R.string.ok, null);
@@ -357,8 +400,9 @@ public class CategoryActivity extends BaseActivity {
                     ImageView img = v.findViewById(R.id.preview);
                     img.setImageDrawable(LookPreview.BAR.equals(screens[0]) ? LookPreview.strip(CategoryActivity.this, previewValues(), previewWidthDp())
                             : LookPreview.row(CategoryActivity.this, previewValues(), screens, previewWidthDp()));
-                    img.setOnClickListener(x -> PreviewDialogs.showAll(CategoryActivity.this, "looks".equals(cat.id) ? "One UI 8 look" : cat.title, previewValues()));
-                    ((TextView) v.findViewById(R.id.preview_hint)).setText("looks".equals(cat.id)
+                    final boolean oneUiLook = "looks".equals(cat.id) && !com.hammad.redmagictweaks.FlavorBits.leftOut("preset_one_ui");
+                    img.setOnClickListener(x -> PreviewDialogs.showAll(CategoryActivity.this, oneUiLook ? "One UI 8 look" : cat.title, previewValues()));
+                    ((TextView) v.findViewById(R.id.preview_hint)).setText(oneUiLook
                             ? "What the One UI 8 look gives with your settings. Tap for every screen."
                             : "Your current settings, drawn the way the phone shows them. Tap for every screen.");
                     break;
@@ -380,7 +424,7 @@ public class CategoryActivity extends BaseActivity {
             lp.leftMargin = lp.rightMargin = Ui.dp(CategoryActivity.this, 4);
             lp.bottomMargin = row.last ? 0 : Ui.dp(CategoryActivity.this, 1);
             v.setLayoutParams(lp);
-            ((TextView) v.findViewById(R.id.title)).setText(f.title);
+            ((TextView) v.findViewById(R.id.title)).setText(titleOf(f));
             final Catalog.Item blocker = Catalog.blockedBy(CategoryActivity.this, it);
             TextView desc = v.findViewById(R.id.desc);
             String needLine = blocker == null ? null : "Needs “" + blocker.feature.title + "” on.";
@@ -431,7 +475,11 @@ public class CategoryActivity extends BaseActivity {
             } else {
                 sw.setVisibility(View.GONE);
                 if (f.type == Features.Type.CHOICE) {
-                    if (Previews.has(f.key)) { thumb.setVisibility(View.VISIBLE); loadThumb(it, Catalog.choice(CategoryActivity.this, it), thumb); }
+                    if (Catalog.hasColor(CategoryActivity.this, it)) {
+                        thumb.setVisibility(View.VISIBLE);
+                        thumb.setTag(null);
+                        thumb.setImageDrawable(com.hammad.redmagictweaks.ColorPick.swatch(CategoryActivity.this, Catalog.color(CategoryActivity.this, it), 34));
+                    } else if (Previews.has(f.key)) { thumb.setVisibility(View.VISIBLE); loadThumb(it, Catalog.choice(CategoryActivity.this, it), thumb); }
                     v.setOnClickListener(x -> { if (blocker != null) askParent(blocker, () -> choose(it)); else choose(it); });
                 } else v.setOnClickListener(x -> act(it));
             }

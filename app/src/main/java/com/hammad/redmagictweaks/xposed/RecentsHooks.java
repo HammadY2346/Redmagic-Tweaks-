@@ -66,7 +66,8 @@ final class RecentsHooks {
         long now = SystemClock.uptimeMillis();
         if (look == null || now - lookAt > 1500) {
             look = RecentsArt.resolve(Cfg.choice(RecentsArt.KEY_STYLE), Cfg.choice(RecentsArt.KEY_HEADER), Cfg.choice(RecentsArt.KEY_CLEAR),
-                    Cfg.choice(RecentsArt.KEY_CORNERS), Cfg.choice(RecentsArt.KEY_SIZE));
+                    Cfg.choice(RecentsArt.KEY_CORNERS), Cfg.choice(RecentsArt.KEY_SIZE),
+                    Cfg.hasNum(RecentsArt.KEY_CORNERS) ? Cfg.num(RecentsArt.KEY_CORNERS, -1) : -1, Cfg.hasNum(RecentsArt.KEY_SIZE) ? Cfg.num(RecentsArt.KEY_SIZE, -1) : -1);
             lookAt = now;
         }
         return look;

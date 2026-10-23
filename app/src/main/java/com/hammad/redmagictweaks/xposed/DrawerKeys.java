@@ -43,7 +43,7 @@ public final class DrawerKeys {
 
     static int pagePadDp() {
         int i = Cfg.choice(KEY_PAGE_PAD);
-        return i > 0 && i < PAGE_PAD_DP.length ? PAGE_PAD_DP[i] : 0;
+        return Math.max(0, Cfg.num(KEY_PAGE_PAD, i > 0 && i < PAGE_PAD_DP.length ? PAGE_PAD_DP[i] : 0));
     }
 
     private static int cachedSearchPos = -1;
@@ -63,6 +63,7 @@ public final class DrawerKeys {
     }
 
     static float labelScale() {
+        if (Cfg.hasNum(KEY_LABEL_SIZE)) return Math.max(0.3f, Cfg.num(KEY_LABEL_SIZE, 100) / 100f);
         int i = Cfg.choice(KEY_LABEL_SIZE);
         return i > 0 && i < LABEL_SCALE.length ? LABEL_SCALE[i] : 1f;
     }

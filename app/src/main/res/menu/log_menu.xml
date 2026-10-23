@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item android:id="@+id/action_share" android:title="@string/share" app:showAsAction="never" />
+    <item android:id="@+id/action_share" android:title="@string/log_share_txt" app:showAsAction="never" />
+    <item android:id="@+id/action_save" android:title="@string/log_save_txt" app:showAsAction="never" />
     <item android:id="@+id/action_copy" android:title="@string/copy" app:showAsAction="never" />
     <item android:id="@+id/action_clear" android:title="@string/clear" app:showAsAction="never" />
 </menu>

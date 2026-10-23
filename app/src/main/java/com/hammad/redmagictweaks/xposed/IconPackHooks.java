@@ -68,6 +68,8 @@ final class IconPackHooks {
     // ------------------------------------------------------------------------------------------- settings snapshot
 
     static final class S {
+        /** The status icon colour as ARGB (a preset or the custom colour, ColorPick); used while color > 0. */
+        int argb;
         int pack, wifi, signal, color, scale, opacity, offX, offY, notifScale, notifOpacity, batteryScale;
         boolean hideSystem, hideNotif, hideFan, hideLiquid, hideRefresh, hideCharge;
         int hash;
@@ -84,20 +86,24 @@ final class IconPackHooks {
             n.wifi = idx(Cfg.choice(IconPackFeatures.SBI_WIFI), IconPackFeatures.CONNECTIVITY.length);
             n.signal = idx(Cfg.choice(IconPackFeatures.SBI_SIGNAL), IconPackFeatures.CONNECTIVITY.length);
             n.color = idx(Cfg.choice(IconPackFeatures.SBI_COLOR), ClockFeatures.COLOR_VALUES.length);
-            n.scale = idx(Cfg.choice(IconPackFeatures.SBI_SCALE), IconPackFeatures.SCALE_PERCENT.length);
-            n.opacity = idx(Cfg.choice(IconPackFeatures.SBI_OPACITY), IconPackFeatures.OPACITY_PERCENT.length);
-            n.offX = idx(Cfg.choice(IconPackFeatures.SBI_OFFSET_X), ClockFeatures.OFFSETS_X_DP.length);
-            n.offY = idx(Cfg.choice(IconPackFeatures.SBI_OFFSET_Y), ClockFeatures.OFFSETS_Y_DP.length);
-            n.notifScale = idx(Cfg.choice(IconPackFeatures.SBI_NOTIF_SCALE), IconPackFeatures.SCALE_PERCENT.length);
-            n.notifOpacity = idx(Cfg.choice(IconPackFeatures.SBI_NOTIF_OPACITY), IconPackFeatures.OPACITY_PERCENT.length);
-            n.batteryScale = idx(Cfg.choice(CosmeticsFeatures.COS_BATTERY_SCALE), IconPackFeatures.SCALE_PERCENT.length);
+            int[] custom = Cfg.color(IconPackFeatures.SBI_COLOR);
+            if (custom != null && n.color == 0) n.color = 1;
+            n.argb = custom != null ? custom[0] : ClockFeatures.COLOR_VALUES[n.color];
+            // values, not indexes: % and dp, from the preset or a typed value (Features.Num)
+            n.scale = pct(IconPackFeatures.SBI_SCALE, IconPackFeatures.SCALE_PERCENT);
+            n.opacity = pct(IconPackFeatures.SBI_OPACITY, IconPackFeatures.OPACITY_PERCENT);
+            n.offX = pct(IconPackFeatures.SBI_OFFSET_X, ClockFeatures.OFFSETS_X_DP);
+            n.offY = pct(IconPackFeatures.SBI_OFFSET_Y, ClockFeatures.OFFSETS_Y_DP);
+            n.notifScale = pct(IconPackFeatures.SBI_NOTIF_SCALE, IconPackFeatures.SCALE_PERCENT);
+            n.notifOpacity = pct(IconPackFeatures.SBI_NOTIF_OPACITY, IconPackFeatures.OPACITY_PERCENT);
+            n.batteryScale = pct(CosmeticsFeatures.COS_BATTERY_SCALE, IconPackFeatures.SCALE_PERCENT);
             n.hideSystem = Cfg.on(IconPackFeatures.SBI_HIDE_SYSTEM);
             n.hideNotif = Cfg.on(IconPackFeatures.SBI_HIDE_NOTIF);
             n.hideFan = Cfg.on(IconPackFeatures.SBI_HIDE_FAN);
             n.hideLiquid = Cfg.on(IconPackFeatures.SBI_HIDE_LIQUID);
             n.hideRefresh = Cfg.on(IconPackFeatures.SBI_HIDE_REFRESH);
             n.hideCharge = Cfg.on(CosmeticsFeatures.COS_BATTERY_HIDE_CHARGE);
-            int h = n.pack; h = h * 31 + n.wifi; h = h * 31 + n.signal; h = h * 31 + n.color; h = h * 31 + n.scale; h = h * 31 + n.opacity;
+            int h = n.pack; h = h * 31 + n.wifi; h = h * 31 + n.signal; h = h * 31 + n.color; h = h * 31 + n.argb; h = h * 31 + n.scale; h = h * 31 + n.opacity;
             h = h * 31 + n.offX; h = h * 31 + n.offY; h = h * 31 + n.notifScale; h = h * 31 + n.notifOpacity; h = h * 31 + n.batteryScale;
             h = h * 31 + (n.hideSystem ? 1 : 0) + (n.hideNotif ? 2 : 0) + (n.hideFan ? 4 : 0) + (n.hideLiquid ? 8 : 0) + (n.hideRefresh ? 16 : 0) + (n.hideCharge ? 32 : 0);
             n.hash = h;
@@ -105,6 +111,9 @@ final class IconPackHooks {
         }
         return snap;
     }
+
+    /** The preset's value for the chosen index, or the typed value (Features.Num) when one is in use. */
+    private static int pct(String key, int[] values) { return Cfg.num(key, values[idx(Cfg.choice(key), values.length)]); }
 
     private static int idx(int v, int len) { return v > 0 && v < len ? v : 0; }
     private static boolean main() { return Looper.myLooper() == Looper.getMainLooper(); }
@@ -228,12 +237,11 @@ final class IconPackHooks {
         }
         float density = root.getResources().getDisplayMetrics().density;
         View sys = b.system == null ? null : b.system.get();
-        if (sys != null) transform(sys, IconPackFeatures.SCALE_PERCENT[s.scale], IconPackFeatures.OPACITY_PERCENT[s.opacity],
-                ClockFeatures.OFFSETS_X_DP[s.offX] * density, ClockFeatures.OFFSETS_Y_DP[s.offY] * density, s.hideSystem);
+        if (sys != null) transform(sys, s.scale, s.opacity, s.offX * density, s.offY * density, s.hideSystem);
         View notif = b.notif == null ? null : b.notif.get();
-        if (notif != null) transform(notif, IconPackFeatures.SCALE_PERCENT[s.notifScale], IconPackFeatures.OPACITY_PERCENT[s.notifOpacity], 0, 0, s.hideNotif);
+        if (notif != null) transform(notif, s.notifScale, s.notifOpacity, 0, 0, s.hideNotif);
         View battery = b.battery == null ? null : b.battery.get();
-        if (battery != null) transform(battery, IconPackFeatures.SCALE_PERCENT[s.batteryScale], 100, 0, 0, false);
+        if (battery != null) transform(battery, s.batteryScale, 100, 0, 0, false);
         if (force) b.hash = s.hash;
     }
 
@@ -296,7 +304,7 @@ final class IconPackHooks {
                     try {
                         ImageView v = (ImageView) p.thisObject;
                         if (Boolean.TRUE.equals(XposedHelpers.callMethod(v, "isNotification")) || barRoot(v) == null) return;
-                        v.setImageTintList(ColorStateList.valueOf(ClockFeatures.COLOR_VALUES[s.color]));
+                        v.setImageTintList(ColorStateList.valueOf(s.argb));
                         synchronized (tinted) { tinted.put(v, Boolean.TRUE); }
                     } catch (Throwable t) { Lx.e("Icons: tint icon", t); }
                 }
@@ -311,7 +319,7 @@ final class IconPackHooks {
                     try {
                         ViewGroup v = (ViewGroup) p.thisObject;
                         if (barRoot(v) == null) return;
-                        tintChildren(v, ClockFeatures.COLOR_VALUES[s.color]);
+                        tintChildren(v, s.argb);
                     } catch (Throwable t) { Lx.e("Icons: tint modern", t); }
                 }
             });

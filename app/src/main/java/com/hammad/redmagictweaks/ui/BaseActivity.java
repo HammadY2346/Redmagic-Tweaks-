@@ -64,6 +64,56 @@ public abstract class BaseActivity extends AppCompatActivity {
         onSettingsChanged();
     }
 
+    /** Menu item "Global tweaks only": checked state, and hidden in the public build (always global only). */
+    protected void setupGlobal(android.view.Menu menu) {
+        MenuItem g = menu.findItem(R.id.action_global);
+        if (g == null) return;
+        g.setVisible(!com.hammad.redmagictweaks.FlavorBits.globalOnly());
+        g.setChecked(com.hammad.redmagictweaks.Region.globalOnly(this));
+    }
+
+    protected void setupOneUiHome(android.view.Menu menu) {
+        MenuItem m = menu.findItem(R.id.action_oneui_home);
+        if (m == null) return;
+        m.setVisible(!com.hammad.redmagictweaks.FlavorBits.publicBuild());
+        m.setChecked(UiPrefs.oneUiHome(this));
+        if (com.hammad.redmagictweaks.WhatsNew.isNew(this, MENU_ONE_UI_HOME, com.hammad.redmagictweaks.WhatsNew.since(MENU_ONE_UI_HOME)))
+            m.setTitle(com.hammad.redmagictweaks.WhatsNew.withPill(this, m.getTitle(), "NEW"));
+    }
+
+    private static final String MENU_ONE_UI_HOME = "menu_oneui_home";
+
+    /** Menu › New badges: how long the "NEW" badges of new settings stay, or mark them all as seen. */
+    protected void pickNewBadges() {
+        final int[] pick = {UiPrefs.newBadges(this)};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("NEW badges")
+                .setSingleChoiceItems(com.hammad.redmagictweaks.WhatsNew.MODES, pick[0], (d, w) -> pick[0] = w)
+                .setPositiveButton(android.R.string.ok, (d, w) -> { UiPrefs.setNewBadges(this, pick[0]); onSettingsChanged(); })
+                .setNeutralButton("Mark all as seen", (d, w) -> {
+                    UiPrefs.markAllSeen(this, com.hammad.redmagictweaks.WhatsNew.keys());
+                    Toast.makeText(this, "Every NEW badge is cleared", Toast.LENGTH_SHORT).show();
+                    onSettingsChanged();
+                })
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    protected void toggleOneUiHome(MenuItem item) {
+        UiPrefs.markSeen(this, MENU_ONE_UI_HOME);
+        boolean v = !UiPrefs.oneUiHome(this);
+        UiPrefs.setOneUiHome(this, v);
+        item.setChecked(v);
+        Toast.makeText(this, v ? "Stock launcher and recents settings are hidden (they don't run while One UI Home is your home screen)" : "Stock launcher and recents settings are shown", Toast.LENGTH_LONG).show();
+        onSettingsChanged();
+    }
+
+    protected void toggleGlobal(MenuItem item) {
+        boolean v = !com.hammad.redmagictweaks.Region.globalOnly(this);
+        com.hammad.redmagictweaks.Region.setGlobalOnly(this, v);
+        item.setChecked(v);
+        Toast.makeText(this, v ? "Global tweaks only: China-only tweaks are hidden and switched off" : "All tweaks: China-only tweaks are shown (marked CN)", Toast.LENGTH_LONG).show();
+        onSettingsChanged();
+    }
+
     protected void toggleDetailed(MenuItem item) {
         boolean v = !UiPrefs.detailed(this);
         UiPrefs.setDetailed(this, v);

@@ -87,6 +87,7 @@ public class MainActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         Prefs.migrate(this);
         if (!UiPrefs.firstRunDone(this)) startActivity(new Intent(this, FirstRunActivity.class));
+        else com.hammad.redmagictweaks.FlavorBits.onStart(this);
         setContentView(R.layout.activity_main);
         buildRows();
         list = findViewById(R.id.list);
@@ -99,10 +100,17 @@ public class MainActivity extends BaseActivity {
         MaterialToolbar tb = findViewById(R.id.toolbar);
         tb.getMenu().findItem(R.id.action_advanced).setChecked(UiPrefs.advanced(this));
         tb.getMenu().findItem(R.id.action_detailed).setChecked(UiPrefs.detailed(this));
+        com.hammad.redmagictweaks.Region.sync(this);
+        setupGlobal(tb.getMenu());
+        setupOneUiHome(tb.getMenu());
         tb.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
+            if (id == R.id.action_oneui_home) { toggleOneUiHome(item); return true; }
+            if (id == R.id.action_new_badges) { pickNewBadges(); return true; }
+            if (id == R.id.action_export_icons) { IconExport.run(this); return true; }
             if (id == R.id.action_advanced) toggleAdvanced(item);
             else if (id == R.id.action_detailed) toggleDetailed(item);
+            else if (id == R.id.action_global) toggleGlobal(item);
             else if (id == R.id.action_restart_sysui) confirm("Restart System UI?", "The status bar, lock screen and panels reload; takes about two seconds.", () -> {
                 Root.Result r = Root.restartSystemUi();
                 if (r.ok()) com.hammad.redmagictweaks.Pending.clearSystemUi(this);
@@ -258,9 +266,11 @@ public class MainActivity extends BaseActivity {
                     ((ImageView) v.findViewById(R.id.cat_icon)).setImageResource(c.icon);
                     ((ImageView) v.findViewById(R.id.cat_icon)).setColorFilter(getColor(R.color.accent));
                     ((TextView) v.findViewById(R.id.cat_title)).setText(c.title);
-                    int on = Catalog.changedCount(MainActivity.this, c), total = Catalog.total(c);
+                    int on = Catalog.changedCount(MainActivity.this, c), total = Catalog.total(MainActivity.this, c);
                     TextView count = v.findViewById(R.id.cat_count);
-                    count.setText(total == 0 ? c.subtitle : on == 0 ? total + " tweaks" : on + " on of " + total);
+                    CharSequence ct = total == 0 ? c.subtitle : on == 0 ? total + " tweaks" : on + " on of " + total;
+                    int fresh = newCount(c);
+                    count.setText(fresh > 0 ? com.hammad.redmagictweaks.WhatsNew.withPill(MainActivity.this, ct, fresh + " NEW") : ct);
                     count.setTextColor(getColor(on == 0 ? R.color.text_dim : R.color.accent));
                     ((TextView) v.findViewById(R.id.cat_contents)).setText(Catalog.contents(c));
                     v.setOnClickListener(x -> startActivity(new Intent(MainActivity.this, CategoryActivity.class).putExtra(CategoryActivity.EXTRA_CATEGORY, c.id)));
@@ -319,7 +329,8 @@ public class MainActivity extends BaseActivity {
     private List<LookItem> looks() {
         List<LookItem> l = new ArrayList<>();
         Looks.V live = Looks.live(this);
-        l.add(new LookItem("One UI 8 look", Looks.with(live, Presets.ONE_UI), () -> showPreset("One UI 8 look", Presets.ONE_UI, false)));
+        if (!com.hammad.redmagictweaks.FlavorBits.leftOut("preset_one_ui"))
+            l.add(new LookItem("One UI 8 look", Looks.with(live, Presets.ONE_UI), () -> showPreset("One UI 8 look", Presets.ONE_UI, false)));
         l.add(new LookItem("Stock look", Looks.with(live, Presets.STOCK), () -> showPreset("Stock look", Presets.STOCK, false)));
         for (LayoutStore.Layout s : LayoutStore.all(this)) l.add(new LookItem(s.name, Looks.of(s), () -> layoutActions(s)));
         l.add(new LookItem("Save current", null, this::saveCurrent));
@@ -344,4 +355,12 @@ public class MainActivity extends BaseActivity {
             v.setOnClickListener(x -> it.open.run());
         }
     }
+
+    /** Settings of a category with a "NEW" badge (only those listed in the current mode). */
+    private int newCount(Catalog.Category c) {
+        int n = 0;
+        for (Catalog.Group g : Catalog.shown(this, c)) for (Catalog.Item it : g.items) if (com.hammad.redmagictweaks.WhatsNew.isNew(this, it.feature)) n++;
+        return n;
+    }
+
 }

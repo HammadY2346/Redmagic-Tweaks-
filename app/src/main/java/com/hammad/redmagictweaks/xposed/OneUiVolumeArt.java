@@ -1,5 +1,7 @@
 package com.hammad.redmagictweaks.xposed;
 
+import com.hammad.redmagictweaks.Features;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -24,6 +26,17 @@ public final class OneUiVolumeArt {
 
     public static final String VOL_WIDTH = "vol_oneui_width", VOL_HEIGHT = "vol_oneui_height", VOL_SHAPE = "vol_oneui_shape",
             VOL_FILL = "vol_oneui_color", VOL_TRACK = "vol_oneui_track", VOL_ICON = "vol_oneui_icon", VOL_LEVEL = "vol_oneui_level";
+    /** Where the panel sits up or down, and how long it stays (both for the One UI panel and RedMagic's own). */
+    public static final String VOL_POS = "vol_position", VOL_TIMEOUT = "vol_timeout";
+    /** Which screen edge the pop-up sits on, and how far from it (RedMagic: right edge, at the display cutout's inset). */
+    public static final String VOL_SIDE = "vol_side", VOL_MARGIN = "vol_margin";
+    public static final String[] SIDES = {"Right (stock)", "Left"};
+    public static final String[] MARGINS = {"Stock (at the edge)", "8 dp", "16 dp", "24 dp", "40 dp"};
+    private static final int[] MARGIN_DP = {0, 8, 16, 24, 40};
+    public static final String[] POSITIONS = {"Stock (centred)", "Higher (80 dp)", "Much higher (160 dp)", "Lower (80 dp)", "Much lower (160 dp)"};
+    private static final int[] POS_DP = {0, -80, -160, 80, 160};
+    public static final String[] TIMEOUTS = {"Stock (3 s)", "1.5 s", "5 s", "8 s", "15 s"};
+    private static final int[] TIMEOUT_MS = {0, 1500, 5000, 8000, 15000};
     public static final String PWR_SIZE = "pwr_oneui_size", PWR_SHAPE = "pwr_oneui_shape", PWR_COLORS = "pwr_oneui_colors", PWR_LABELS = "pwr_oneui_labels";
 
     /** The switch that picks the One UI 8 panel; with it off the options restyle RedMagic's own bar. */
@@ -54,11 +67,21 @@ public final class OneUiVolumeArt {
 
     // ============================================================================================ the chosen look
 
+    private static final String C = Features.CUSTOM, V = Features.VALUE;
+
     /** Where the values come from (the module settings in System UI, the live or previewed settings in the app). */
     public interface Src { int choice(String key); boolean on(String key); }
 
     public static final class Look {
         public int width, height, shape, fill, track, icon, pwrSize, pwrShape, pwrColors, pwrLabels;
+        /** Custom colours (ColorPick): the bar fill {start, end} and the power buttons' colour; null = the preset. */
+        public int[] fillCustom, pwrCustom;
+        /** Typed values (Features.Num): bar thickness, extra height, power button size (dp); -1 / MIN = use the preset. */
+        public int widthV = -1, heightV = Integer.MIN_VALUE, pwrSizeV = -1;
+        /** Panel moved up (-) or down (+) in dp, auto-hide time in ms (0 = stock). */
+        public int posDp, timeoutMs;
+        /** On the left edge instead of the right; extra distance from that edge in dp. */
+        public boolean left; public int marginDp;
         public boolean level;
         /** The One UI 8 panel is on (else the options restyle RedMagic's own bar). */
         public boolean oneUi;
@@ -80,19 +103,38 @@ public final class OneUiVolumeArt {
         l.pwrShape = clamp(s.choice(PWR_SHAPE), PWR_SHAPES.length);
         l.pwrColors = clamp(s.choice(PWR_COLORS), PWR_COLOR_SETS.length);
         l.pwrLabels = clamp(s.choice(PWR_LABELS), PWR_LABEL_STYLES.length);
+        l.fillCustom = custom(s, VOL_FILL);
+        l.pwrCustom = custom(s, PWR_COLORS);
+        if (s.on(VOL_WIDTH + C)) l.widthV = Math.max(4, Math.min(80, s.choice(VOL_WIDTH + V)));
+        if (s.on(VOL_HEIGHT + C)) l.heightV = Math.max(0, Math.min(400, s.choice(VOL_HEIGHT + V)));
+        if (s.on(PWR_SIZE + C)) l.pwrSizeV = Math.max(40, Math.min(120, s.choice(PWR_SIZE + V)));
+        l.posDp = s.on(VOL_POS + C) ? Math.max(-600, Math.min(600, s.choice(VOL_POS + V))) : POS_DP[clamp(s.choice(VOL_POS), POS_DP.length)];
+        l.left = s.choice(VOL_SIDE) == 1;
+        l.marginDp = s.on(VOL_MARGIN + C) ? Math.max(0, Math.min(200, s.choice(VOL_MARGIN + V))) : MARGIN_DP[clamp(s.choice(VOL_MARGIN), MARGIN_DP.length)];
+        l.timeoutMs = s.on(VOL_TIMEOUT + C) ? Math.max(1, Math.min(120, s.choice(VOL_TIMEOUT + V))) * 1000 : TIMEOUT_MS[clamp(s.choice(VOL_TIMEOUT), TIMEOUT_MS.length)];
         return l;
     }
 
+    /** A custom colour (ColorPick) read through the source: {start, end}, or null. */
+    private static int[] custom(Src s, String key) {
+        if (!s.on(key + com.hammad.redmagictweaks.ColorPick.ON)) return null;
+        int c1 = s.choice(key + com.hammad.redmagictweaks.ColorPick.C1);
+        return new int[]{c1, s.on(key + com.hammad.redmagictweaks.ColorPick.GRAD) ? s.choice(key + com.hammad.redmagictweaks.ColorPick.C2) : c1};
+    }
+
+    /** The colours of a FILLS preset (null for Default and Wallpaper colour). */
+    public static int[] fillPreset(int i) { return i >= 0 && i < FILL_RGB.length && FILL_RGB[i] != null ? FILL_RGB[i].clone() : new int[]{0xFFFFFFFF}; }
+
     /** Thickness of the bar (RedMagic's own bar is 20 dp). */
-    public static int thickDp(Look l) { return l.width == 0 ? (l.oneUi ? 40 : 20) : WIDTH_DP[l.width]; }
+    public static int thickDp(Look l) { return l.widthV > 0 ? l.widthV : l.width == 0 ? (l.oneUi ? 40 : 20) : WIDTH_DP[l.width]; }
     /** Width of the drawn panel around it: One UI 2 dp wider than the bar, RedMagic's own 56 dp column. */
     public static int columnDp(Look l) { return l.oneUi ? thickDp(l) + 4 : 56; }
     /** How much taller than stock the panel gets. */
-    public static int extraDp(Look l) { return l.height == 0 ? (l.oneUi ? 80 : 0) : HEIGHT_DP[l.height]; }
+    public static int extraDp(Look l) { return l.heightV != Integer.MIN_VALUE ? l.heightV : l.height == 0 ? (l.oneUi ? 80 : 0) : HEIGHT_DP[l.height]; }
     /** The speaker icon sits in the circle at the bottom of the bar (needs a bar at least 24 dp thick). */
     public static boolean iconInside(Look l) { return (l.icon == 0 ? l.oneUi : l.icon == 2) && thickDp(l) >= 24; }
     /** With the One UI panel off: an option changes how RedMagic's own bar is drawn (otherwise RedMagic draws it). */
-    public static boolean stockDraw(Look l) { return !l.oneUi && (l.width != 0 || l.shape != 0 || l.fill != 0 || l.track != 0 || l.level || l.icon == 2); }
+    public static boolean stockDraw(Look l) { return !l.oneUi && (l.width != 0 || l.widthV > 0 || l.shape != 0 || l.fill != 0 || l.track != 0 || l.level || l.icon == 2); }
     /** The bar is drawn by the module (One UI panel, or a restyled RedMagic bar). */
     public static boolean custom(Look l) { return l.oneUi || stockDraw(l); }
     /** The panel's size changes (One UI panel, a restyled RedMagic bar, or a taller RedMagic panel). */
@@ -107,6 +149,7 @@ public final class OneUiVolumeArt {
 
     /** Fill colours {start (bottom), end (top)}; equal for a plain colour. */
     public static int[] fill(Context ctx, Look l, boolean dark) {
+        if (l.fillCustom != null) return l.fillCustom.clone();
         if (l.fill == 1) { int a = accent(ctx, dark); return new int[]{a, a}; }
         int[] rgb = FILL_RGB[l.fill];
         if (rgb == null) { int f = dark ? (l.oneUi ? 0xFFEDEDF0 : 0xFFF4F4F6) : 0xFFFFFFFF; return new int[]{f, f}; }
@@ -377,7 +420,7 @@ public final class OneUiVolumeArt {
 
     // ============================================================================================ power menu
 
-    public static int pwrSizeDp(Look l) { return PWR_SIZE_DP[l.pwrSize]; }
+    public static int pwrSizeDp(Look l) { return l.pwrSizeV > 0 ? l.pwrSizeV : PWR_SIZE_DP[l.pwrSize]; }
 
     /** Corner radius of a power-menu button of {@code size} px; negative = a circle. */
     public static float pwrCorner(Look l, float size) {
@@ -391,6 +434,7 @@ public final class OneUiVolumeArt {
 
     /** {background, icon, outline (0 = none)} of the button with resource id name {@code id}. */
     public static int[] pwrColors(Context ctx, Look l, String id) {
+        if (l.pwrCustom != null) { int a = l.pwrCustom[0]; return new int[]{a, over(a | 0xFF000000), (a >>> 24) < 0xC0 ? 0x66FFFFFF : 0}; }
         switch (l.pwrColors) {
             case 1: { int a = accent(ctx, true); return new int[]{a, over(a), 0}; }
             case 2: return new int[]{0xFFE8343B, 0xFFFFFFFF, 0};

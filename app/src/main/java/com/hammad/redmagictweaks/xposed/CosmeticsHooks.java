@@ -210,8 +210,13 @@ final class CosmeticsHooks {
         try {
             ViewGroup layout = layoutOf(icon);
             if (layout != null) {
-                Object colors = XposedHelpers.getObjectField(layout, "mBatteryColors");
-                if (colors != null) { int t = XposedHelpers.getIntField(colors, "mTint"); if (t != 0) return t; }
+                try {
+                    Object colors = XposedHelpers.getObjectField(layout, "mBatteryColors");
+                    if (colors != null) { int t = XposedHelpers.getIntField(colors, "mTint"); if (t != 0) return t; }
+                } catch (NoSuchFieldError e) {
+                    // global firmware (EU 11.0.4): the older layout keeps the tint itself
+                    int t = XposedHelpers.getIntField(layout, "mTint"); if (t != 0) return t;
+                }
             }
         } catch (Throwable ignored) { }
         try { return XposedHelpers.getIntField(icon, "mStatusBarColor"); } catch (Throwable t) { return 0xD8FFFFFF; }
@@ -219,6 +224,24 @@ final class CosmeticsHooks {
 
     /** Layouts whose views we hid: bit 1 = inside number (show mode 1), bit 2 = outside number (mode 2), bit 4 = vendor bolt (both One UI 8 only). */
     private static final Map<ViewGroup, Integer> insideHidden = new WeakHashMap<>();
+
+    /**
+     * Where the number is shown: 1 inside the icon, 2 next to it, 0 none. China firmware keeps it in mShowMode; the
+     * global (EU 11.0.4) layout has no such field, so it is read from the number views (and what we hid ourselves).
+     */
+    private static int showMode(ViewGroup layout) {
+        try { return XposedHelpers.getIntField(layout, "mShowMode"); } catch (Throwable ignored) { }
+        int f = hiddenFlags(layout);
+        if ((f & 1) != 0) return 1;
+        if ((f & 2) != 0) return 2;
+        try {
+            Object in = XposedHelpers.getObjectField(layout, "mBatteryLevelInsideView");
+            if (in instanceof View && ((View) in).getVisibility() == View.VISIBLE) return 1;
+            Object out = XposedHelpers.getObjectField(layout, "mBatteryLevelOutsideView");
+            if (out instanceof View && ((View) out).getVisibility() == View.VISIBLE) return 2;
+        } catch (Throwable ignored) { }
+        return 0;
+    }
 
     private static int hiddenFlags(ViewGroup layout) {
         synchronized (insideHidden) { Integer f = insideHidden.get(layout); return f == null ? 0 : f; }
@@ -231,7 +254,7 @@ final class CosmeticsHooks {
      */
     private static void syncInside(ViewGroup layout, int style) {
         try {
-            int mode = XposedHelpers.getIntField(layout, "mShowMode");
+            int mode = showMode(layout);
             Object inside = XposedHelpers.getObjectField(layout, "mBatteryLevelInsideView");
             Object outside = XposedHelpers.getObjectField(layout, "mBatteryLevelOutsideView");
             boolean oneUi8 = style == CosmeticsArt.BATTERY_ONE_UI8;
@@ -248,7 +271,7 @@ final class CosmeticsHooks {
     private static void restoreInside(ViewGroup layout) {
         synchronized (insideHidden) { insideHidden.remove(layout); }
         try {
-            int mode = XposedHelpers.getIntField(layout, "mShowMode");
+            int mode = showMode(layout);
             Object inside = XposedHelpers.getObjectField(layout, "mBatteryLevelInsideView");
             Object outside = XposedHelpers.getObjectField(layout, "mBatteryLevelOutsideView");
             if (mode == 1 && inside instanceof View) ((View) inside).setVisibility(View.VISIBLE);
@@ -339,7 +362,7 @@ final class CosmeticsHooks {
                 } else fill = level <= 20 && !charging ? 0xE5FF0000 : tint;   // stock: red below 20 % unless charging
                 boolean percent = s.batteryPercent || style == CosmeticsArt.BATTERY_ONE_UI8;
                 ViewGroup layout = layoutOf(v);
-                if (layout != null) { try { percent |= XposedHelpers.getIntField(layout, "mShowMode") == 1; } catch (Throwable ignored) { } }
+                if (layout != null) percent |= showMode(layout) == 1;
                 Rect b = getBounds();
                 CosmeticsArt.drawBattery(style, canvas, new RectF(b), level, charging && !s.batteryNoCharge, saver, percent, fill, tint);
             } catch (Throwable t) { Lx.e("cosmetics: battery draw", t); }

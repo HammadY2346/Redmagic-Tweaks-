@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Game view per game (ui/GameViewPicker) lists installed games: Android 11+ hides other apps without this.
+         RM Tweaks is installed outside the Play Store, so the Play policy for this permission does not apply. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
     <queries>
         <package android:name="cn.nubia.gameassist" />
         <package android:name="cn.nubia.gamelauncher" />
@@ -24,6 +28,29 @@
         <package android:name="cn.nubia.touping" />
         <package android:name="com.android.nfc" />
         <package android:name="com.zte.cn.doubleapp" />
+        <!-- icon packs for the stock launcher (ui/IconPackPicker) -->
+        <intent><action android:name="org.adw.launcher.THEMES" /></intent>
+        <intent><action android:name="com.novalauncher.THEME" /></intent>
+        <intent><action android:name="com.gau.go.launcherex.theme" /></intent>
+        <intent><action android:name="com.teslacoilsw.launcher.THEME" /></intent>
+        <intent><action android:name="com.anddoes.launcher.THEME" /></intent>
+        <intent><action android:name="com.fede.launcher.THEME_ICONPACK" /></intent>
+        <intent><action android:name="com.dlto.atom.launcher.THEME" /></intent>
+        <intent><action android:name="com.actionlauncher.playstore.ICONPACK" /></intent>
+        <intent><action android:name="ginlemon.smartlauncher.THEMES" /></intent>
+        <intent><action android:name="com.lge.launcher2.THEME" /></intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="com.anddoes.launcher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="com.teslacoilsw.launcher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="com.fede.launcher.THEME_ICONPACK" />
+        </intent>
     </queries>
 
     <application
@@ -45,6 +72,22 @@
             android:exported="true"
             android:grantUriPermissions="false" />
 
+        <!-- the log as a .txt file for the share sheet (ui/LogActivity) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- the lock screen video clip, read-only, for System UI (xposed/LockVideoHooks) -->
+        <provider
+            android:name=".LockVideoProvider"
+            android:authorities="${applicationId}.lockvideo"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
@@ -58,6 +101,19 @@
         <activity android:name=".ui.AboutActivity" android:exported="false" />
         <activity android:name=".ui.FirstRunActivity" android:exported="false" />
         <activity android:name=".ui.LogActivity" android:exported="false" />
+        <!-- lock screen video: picked in the app, or handed over by a gallery (Set as… / Share) -->
+        <activity android:name=".ui.LockVideoActivity" android:exported="true" android:label="Lock screen video">
+            <intent-filter android:label="Lock screen video">
+                <action android:name="android.intent.action.ATTACH_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter android:label="Lock screen video">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+        </activity>
 
         <service
             android:name=".SafeModeTile"

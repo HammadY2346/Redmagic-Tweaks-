@@ -9,6 +9,10 @@ on:
         description: 'Public build: version to release from this commit (for example v1.0.0); empty = just build'
         required: false
         default: ''
+      edition:
+        description: 'private repo only: "public" builds RedMagic Tweaks here too (a test build, never released from this repo)'
+        required: false
+        default: ''
 permissions:
   contents: write
 jobs:
@@ -54,9 +58,12 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RELEASE_INPUT: ${{ github.event.inputs.release }}
+          EDITION_INPUT: ${{ github.event.inputs.edition }}
         run: |
           # the private repo has app/src/private and builds RM Tweaks; the public repo builds RedMagic Tweaks
-          if [ -d app/src/private ]; then
+          # (a manual run with edition=public builds RedMagic Tweaks in the private repo too, for testing)
+          if [ "$EDITION_INPUT" = public ] && [ -d app/src/private ]; then RELEASE_INPUT=""; echo "PUBLIC_TEST=1" >> $GITHUB_ENV; fi
+          if [ -d app/src/private ] && [ "$EDITION_INPUT" != public ]; then
             echo "FLAVOR=private" >> $GITHUB_ENV; echo "TASK=assemblePrivateRelease" >> $GITHUB_ENV
             echo "APK_NAME=RMTweaks" >> $GITHUB_ENV; echo "TITLE=RM Tweaks" >> $GITHUB_ENV
           else
@@ -131,11 +138,17 @@ jobs:
           ls -l out
       - name: Release
         # private: every build is a release; public: only versions (a v* tag, or "release" on a manual run), with release-notes/<version>.md
-        if: env.FLAVOR == 'private' || env.RELEASE_TAG != ''
+        # (a private build of another branch, e.g. a compile check, is not released)
+        if: (env.FLAVOR == 'private' && github.ref == 'refs/heads/main') || env.RELEASE_TAG != '' || env.PUBLIC_TEST == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$FLAVOR" = private ]; then
+          if [ "$PUBLIC_TEST" = 1 ]; then
+            # a RedMagic Tweaks test build made in the private repo: a pre-release here, never in the public repo
+            TAG="redmagictweaks-test-r${{ github.run_number }}"
+            { echo "RedMagic Tweaks (public edition) test build from $(git rev-parse --short HEAD) of RM Tweaks. Not a public release."; echo; git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):'; } > notes.txt
+            gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --prerelease --title "RedMagic Tweaks test $TAG" --notes-file notes.txt
+          elif [ "$FLAVOR" = private ]; then
             TAG="rmtweaks-r${{ github.run_number }}"
             git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt
             gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --title "$TITLE $TAG" --notes-file notes.txt
@@ -149,8 +162,3 @@ jobs:
               gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --title "$TITLE $TAG" --notes-file notes.txt
             fi
           fi
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APK_NAME }}-apk
-          path: out/*.apk

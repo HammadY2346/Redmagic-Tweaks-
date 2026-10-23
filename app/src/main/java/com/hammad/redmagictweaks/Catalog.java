@@ -92,6 +92,9 @@ public final class Catalog {
     static {
         for (String k : new String[]{"pwr_oneui_size", "pwr_oneui_shape", "pwr_oneui_colors", "pwr_oneui_labels"}) NEEDS.put(k, "pwr_oneui8");
         for (String k : new String[]{"lock_oneui_face", "lock_oneui_size", "lock_oneui_position"}) NEEDS.put(k, "lock_oneui_clock");
+        for (String k : new String[]{"aod_oneui_face", "aod_oneui_size"}) NEEDS.put(k, "aod_oneui_clock");
+        for (String k : new String[]{"lock_video_when", "lock_video_end", "lock_video_sound", "lock_video_fit"}) NEEDS.put(k, "lock_video_on");
+        NEEDS.put("game_view_gs_custom", "game_view_gs_stretch");
     }
 
     /** The switch a setting needs, or null. */
@@ -109,7 +112,7 @@ public final class Catalog {
     public static int choice(Context c, Item it) {
         if (SEARCH_BUTTON.equals(it.key())) return Prefs.on(c, SEARCH_SHOW) ? 1 : Prefs.on(c, SEARCH_HIDE) ? 2 : 0;
         int v = Prefs.choice(c, it.key());
-        return v < 0 || it.feature.choices == null || v >= it.feature.choices.length ? 0 : v;
+        return v < 0 || it.feature.choices == null || v >= it.feature.choices.length || !it.feature.offered(v) ? 0 : v;
     }
 
     public static void setChoice(Context c, Item it, int v) {
@@ -121,14 +124,54 @@ public final class Catalog {
     public static boolean changed(Context c, Item it) {
         switch (it.feature.type) {
             case SWITCH: return Prefs.on(c, it.key());
-            case CHOICE: return choice(c, it) != 0;
+            case CHOICE: return choice(c, it) != 0 || hasNum(c, it) || hasColor(c, it);
             default: return false;
         }
     }
 
     public static void reset(Context c, Item it) {
         if (it.feature.type == Features.Type.SWITCH) Prefs.set(c, it.key(), false);
-        else if (it.feature.type == Features.Type.CHOICE) setChoice(c, it, 0);
+        else if (it.feature.type == Features.Type.CHOICE) { setChoice(c, it, 0); clearNum(c, it); clearColor(c, it); }
+    }
+
+    // ---- typed values (Features.Num) ----
+    /** A typed value is in use instead of a preset. */
+    public static boolean hasNum(Context c, Item it) { return it.feature.num != null && Prefs.on(c, it.key() + Features.CUSTOM); }
+    public static int num(Context c, Item it) {
+        Features.Num n = it.feature.num;
+        int v = Prefs.choice(c, it.key() + Features.VALUE);
+        return n == null ? v : Math.max(n.min, Math.min(n.max, v));
+    }
+    public static void setNum(Context c, Item it, int v) { Prefs.set(c, it.key() + Features.VALUE, v); Prefs.set(c, it.key() + Features.CUSTOM, true); }
+    public static void clearNum(Context c, Item it) { if (Prefs.on(c, it.key() + Features.CUSTOM)) Prefs.set(c, it.key() + Features.CUSTOM, false); }
+
+    // ---- custom colours (ColorPick) ----
+    /** A custom colour is in use instead of a preset. */
+    public static boolean hasColor(Context c, Item it) { return ColorPick.is(it.key()) && Prefs.on(c, it.key() + ColorPick.ON); }
+    /** The custom colour: {c1} or {c1, c2}; null when none. */
+    public static int[] color(Context c, Item it) { return hasColor(c, it) ? ColorPick.of(Looks.live(c), it.key()) : null; }
+    /** Stores a custom colour (one or two stops); the choice holds the nearest preset meanwhile (ColorPick.proxy). */
+    public static void setColor(Context c, Item it, int[] stops) {
+        android.content.SharedPreferences.Editor e = Prefs.get(c).edit();
+        e.putInt(it.key() + ColorPick.C1, stops[0]);
+        e.putBoolean(it.key() + ColorPick.GRAD, stops.length > 1);
+        if (stops.length > 1) e.putInt(it.key() + ColorPick.C2, stops[1]);
+        e.putBoolean(it.key() + ColorPick.ON, true);
+        e.commit();
+    }
+    public static void clearColor(Context c, Item it) { if (Prefs.on(c, it.key() + ColorPick.ON)) Prefs.set(c, it.key() + ColorPick.ON, false); }
+
+    /** Left out of the lists: a China-only tweak while "Global tweaks only" is on. */
+    public static boolean hidden(Context c, Item it) {
+        String parent = NEEDS.get(it.key());
+        return Region.hidden(c, it.key()) || (parent != null && Region.leftOut(parent)) || (UiPrefs.oneUiHome(c) && stockLauncher(it));
+    }
+
+    /** A setting of the stock launcher (its home screen, drawer and recents): nothing to change while One UI Home is home. */
+    private static boolean stockLauncher(Item it) {
+        if (it.origin == null) return false;
+        for (String p : it.origin.packages) if ("com.zte.mifavor.launcher".equals(p)) return true;
+        return false;
     }
 
     // ============================================================================================ the arrangement
@@ -183,7 +226,7 @@ public final class Catalog {
             .group("Hide icons", "sbi_hide_system", "sb_hide_wifi", "sb_hide_mobile", "sb_hide_bluetooth", "sb_hide_hd", "sb_hide_vpn", "sb_hide_nfc",
                     "sb_hide_alarm", "sb_hide_vibrate", "sb_hide_headset", "sb_hide_hotspot", "sb_hide_location", "sb_hide_cast", "sb_hide_rotate",
                     "sb_hide_data_saver", "sb_hide_ethernet", "sb_hide_ime", "sb_hide_work", "sb_hide_privacy", "sbi_hide_fan", "sbi_hide_liquid", "sbi_hide_refresh")
-            .group("Network speed", "sb_net_show", "sb_net_fast", "sb_net_style", "sb_net_size")
+            .group("Network speed", "sb_net_show", "sb_net_fast", "sb_net_style", "sb_net_size", "sb_net_color", "sb_net_dx", "sb_net_dy")
             .group("Notification icons", "notif_icon_limit", "notif_overflow_count", "sbi_notif_scale", "sbi_notif_opacity", "sbi_hide_notif")
             .group("Height and margins", "sb_height", "sb_side_padding");
         b.cat("quickpanel", "Quick panel", "Control Center, tiles and sliders", R.drawable.ic_cat_quickpanel, false)
@@ -191,35 +234,37 @@ public final class Catalog {
             .group("One UI 8 layout", "qs_cc_oneui_big_clock", "qs_cc_oneui_no_header", "qs_cc_oneui_no_media", "qs_cc_oneui_no_shortcuts")
             .group("Header", SEARCH_BUTTON, "qs_cc_hide_edit", "qs_cc_hide_user", "qs_cc_hide_power", "qs_cc_hide_settings", "qs_cc_hide_date", "sb_qs_carrier")
             .group("Classic panel", "qs_cols", "qs_rows", "~qs_land_cols", "~qs_land_rows", "qs_top_layout", "qs_label_pos", "qs_label_lines")
-            .group("Brightness", "qs_brightness_style", "qs_brightness_pos", "qs_brightness_no_sun")
-            .group("Tile look", "qs_shape_small", "qs_shape_large", "qs_tile_style");
+            .group("Brightness", "qs_brightness_style", "qs_slider_color", "qs_brightness_pos", "qs_brightness_no_sun")
+            .group("Tile look", "qs_shape_small", "qs_shape_large", "qs_tile_style", "qs_tile_color");
         b.cat("notifications", "Notifications", "Card look, heads-up and what stays after unlock", R.drawable.ic_cat_notifications, false)
-            .group("Cards", "notif_style", "notif_opacity", "notif_corners")
+            .group("Cards", "notif_style", "notif_tint", "notif_opacity", "notif_corners", "notif_gap", "notif_side")
             .group("Behaviour", "notif_no_auto_headsup", "lock_keep_notifs", "fw_quiet_when_unlocked", "sb_notif_native_icon");
         b.cat("lockscreen", "Lock screen & AOD", "One UI clock, widgets and always-on display", R.drawable.ic_cat_lockscreen, false)
             .group("One UI clock", "lock_oneui_clock", "lock_oneui_face", "lock_oneui_size", "lock_oneui_position", "lock_oneui_tiles", "lock_oneui_shortcuts")
+            .group("Clock and date colours", "lock_clock_color", "lock_date_color")
+            .group("Video wallpaper", "lock_video", "lock_video_on", "lock_video_when", "lock_video_end", "lock_video_sound", "lock_video_fit")
             .group("Lock screen", "lock_hide_statusbar", "lock_hide_unlock_hint", "lock_hide_weather_widget", "lock_hide_alarm_widget", "lock_hide_battery_widget",
                     "lock_double_tap_sleep", "lock_double_tap_statusbar", "fw_no_72h_lock")
             .group("Always-on display", "aod_brightness", "aod_tap_time", "aod_low_battery", "aod_power_saving", "aod_burn_in", "aod_fade")
-            .group("AOD clock and lines", "aod_clock_color", "aod_clock_size", "lock_aod_seconds", "lock_aod_datetime", "aod_battery", "aod_lunar")
+            .group("AOD clock and lines", "aod_oneui_clock", "aod_oneui_face", "aod_oneui_size", "aod_clock_color", "aod_clock_size", "aod_clock_position", "lock_aod_seconds", "lock_aod_datetime", "aod_battery", "aod_lunar")
             .group("AOD notifications", "aod_notifications", "aod_notif_count", "aod_notif_size", "aod_notif_app_icons")
             .group("Stock clock and date", "~lock_clock_hide", "~lock_clock_size", "~lock_clock_opacity", "~lock_clock_dx", "~lock_clock_dy", "~lock_clock_rot",
                     "~lock_date_hide", "~lock_date_size", "~lock_date_opacity", "~lock_date_dx", "~lock_date_dy", "~lock_date_rot");
         b.cat("fingerprint", "Fingerprint", "Unlock animation, icon and collab styles", R.drawable.ic_fingerprint, false)
             .group("Unlock animation", "fpc_anim", "fpc_anim_set", "fpc_anim_interval", "fpc_anim_size", "fp_import")
-            .group("Fingerprint icon", "fpc_icon", "fpc_icon_style", "fpc_icon_color", "fpc_icon_size", "fpc_icon_hide")
+            .group("Fingerprint icon", "fpc_icon", "fpc_icon_style", "fpc_icon_color", "fpc_icon_size", "fpc_icon_opacity", "fpc_icon_dx", "fpc_icon_dy", "fpc_icon_hide")
             .group("Collaboration styles", "fp_chisa", "fp_fighting", "fp_wuthering_waves", "fp_lty", "fp_golden_saga")
             .group("Unlocking", "fp_unlock_all");
         b.cat("volume", "Volume & power", "Volume panel, power menu and volume limits", R.drawable.ic_cat_volume, false)
-            .group("Volume panel", "vol_oneui8", "vol_oneui_width", "vol_oneui_height", "vol_oneui_shape", "vol_oneui_color", "vol_oneui_track",
+            .group("Volume panel", "vol_oneui8", "vol_oneui_width", "vol_oneui_height", "vol_position", "vol_side", "vol_margin", "vol_timeout", "vol_oneui_shape", "vol_oneui_color", "vol_oneui_track",
                     "vol_oneui_icon", "vol_oneui_level", "vol_style")
             .group("Volume", "sb_volume_no_warning", "fw_no_safe_volume", "fw_volume_boost", "fw_dnd_volume", "sb_volume_no_vibrate")
             .group("One UI 8 power menu", "pwr_oneui8", "pwr_oneui_size", "pwr_oneui_shape", "pwr_oneui_colors", "pwr_oneui_labels")
-            .group("Power", "pwr_style", "fw_power_assist");
+            .group("Power", "pwr_style", "pwr_position", "pwr_layout", "pwr_dim", "fw_power_assist");
         b.cat("charging", "Charging & battery", "Charging animation, readouts and battery options", R.drawable.ic_cat_charging, false)
             .group("Charging animation", "charge_set", "charge_import", "charge_every_lock")
             .group("Lock screen readout", "lock_charge_info", "lock_charge_interval")
-            .group("Battery app", "bat_super_mode", "bat_refresh_rate", "bat_charge_separation", "bat_long_charge", "bat_time", "bat_5g_save");
+            .group("Battery app", "bat_health", "bat_super_mode", "bat_refresh_rate", "bat_charge_separation", "bat_separation_100", "bat_long_charge", "bat_time", "bat_5g_save");
         b.cat("display", "Display & performance", "Refresh rate, screen timeout and small windows", R.drawable.ic_cat_display, false)
             .group("Refresh rate", "fw_auto_rate_max", "fw_force_rate", "fw_force_rate_video60")
             .group("Screen", "set_timeout_long", "fw_screen_never_off")
@@ -231,11 +276,13 @@ public final class Catalog {
                     "launcher_drawer_label_size", "launcher_hide_fastscroller")
             .group("Drawer folders", "launcher_folder_shape", "launcher_folder_color", "launcher_folder_opacity", "launcher_folder_grid", "launcher_folder_label",
                     "launcher_folder_open_style", "launcher_folder_view_bg", "launcher_folder_view_radius", "launcher_folder_view_cols", "launcher_folder_view_no_names")
+            .group("App icons", "launcher_icon_pack", "launcher_icon_shape", "launcher_label_size", "launcher_hide_labels")
             .group("Home screen", "launcher_cols", "launcher_rows", "launcher_hotseat", "launcher_hotseat_text", "launcher_two_line", "launcher_circle_scroll",
-                    "launcher_rotation");
+                    "launcher_rotation", "launcher_folder_cols", "launcher_folder_rows");
         b.cat("gaming", "Gaming", "Game Space, key mapping, fan light", R.drawable.ic_game, false)
             .group("Game Space", "game_unfreeze", "game_macro_any", "game_combo_speed", "game_tgk_link_all", "game_sr_balance", "game_sr_coexist",
-                    "game_no_dialogs", "game_keep_redmagic_time", "game_ai_speed", "game_record_free", "game_active_mode_keep")
+                    "game_no_dialogs", "game_keep_redmagic_time", "game_ai_speed", "game_record_free", "game_active_mode_keep",
+                    "game_gfrc_all", "game_gfrc_target", "game_fullscreen", "game_view", "game_view_only_game", "game_view_gs_stretch", "game_view_gs_custom", "game_view_strength", "game_view_games", "game_launch_boost", "game_assist_defer")
             .group("Controls and lights", "key_continuous", "key_xgravity", "light_fan", "light_new_protocol")
             .group("Magic Voice", "mv_calls");
         b.cat("fonts", "Fonts, themes & boot", "System UI font, boot animation, Theme Store", R.drawable.ic_cat_fonts, false)
@@ -248,7 +295,7 @@ public final class Catalog {
                     "ges_shake_light", "ges_motion")
             .group("Connections", "fw_airplane_wifi", "fw_airplane_bt", "nfc_mute", "nfc_screen_off", "cast_high_fps", "cast_all_features")
             .group("Apps", "clone_any", "clone_no_limit", "hs_no_ads", "hs_landscape", "inst_skip_scan", "inst_no_store_nag", "inst_hide_pure")
-            .group("Privacy and system", "fw_no_telemetry", "fw_no_alert_notif", "sb_clipboard_overlay", "sb_usb_debug_auto_allow", "sb_onehand_no_hint");
+            .group("Privacy and system", "fw_google_intl", "fw_no_telemetry", "fw_no_alert_notif", "sb_clipboard_overlay", "sb_usb_debug_auto_allow", "sb_onehand_no_hint");
         b.cat("advanced", "Advanced", "Tweaks that weaken protections or push the hardware", R.drawable.ic_cat_advanced, true)
             .group("Use with care", "fw_secure_screenshot", "fw_untrusted_touch", "fw_no_thermal_limit", "fw_phantom_off", "inst_no_risk");
 
@@ -285,7 +332,8 @@ public final class Catalog {
         Builder(List<Category> out, Map<String, Features.Feature> feature, Map<String, Features.Section> origin, Set<String> placed) {
             this.out = out; this.feature = feature; this.origin = origin; this.placed = placed;
         }
-        Builder cat(String id, String title, String subtitle, int icon, boolean advanced) {
+        Builder cat(String id, String title, String subtitle0, int icon, boolean advanced) {
+            String subtitle = FlavorBits.categorySubtitle(id, subtitle0);
             cur = new Category(id, title, subtitle, icon, advanced);
             out.add(cur);
             return this;
@@ -323,7 +371,7 @@ public final class Catalog {
     public static List<Category> visible(Context c) {
         List<Category> l = new ArrayList<>();
         boolean adv = UiPrefs.advanced(c);
-        for (Category cat : all()) if (adv || !cat.advanced) l.add(cat);
+        for (Category cat : all()) if ((adv || !cat.advanced) && (total(c, cat) > 0 || total(cat) == 0)) l.add(cat);   // a category whose settings are all hidden goes too
         return l;
     }
 
@@ -333,7 +381,7 @@ public final class Catalog {
         List<Group> l = new ArrayList<>();
         for (Group g : cat.groups) {
             Group v = new Group(g.title);
-            for (Item it : g.items) if (adv || !it.fine) v.items.add(it);
+            for (Item it : g.items) if ((adv || !it.fine) && !hidden(c, it)) v.items.add(it);
             if (!v.items.isEmpty()) l.add(v);
         }
         return l;
@@ -344,6 +392,12 @@ public final class Catalog {
         StringBuilder b = new StringBuilder();
         for (Group g : cat.groups) {
             if (g.title.equals("More")) continue;
+            boolean any = false;                              // a group this build leaves out completely is not named
+            for (Item it : g.items) {
+                String parent = NEEDS.get(it.key());
+                if (!Region.leftOut(it.key()) && (parent == null || !Region.leftOut(parent))) { any = true; break; }
+            }
+            if (!any) continue;
             if (b.length() > 0) b.append(" · ");
             b.append(g.title);
         }
@@ -359,16 +413,23 @@ public final class Catalog {
         return n;
     }
 
-    /** Every setting in the app, Advanced included. */
+    /** Settings of a category that are shown (China-only ones left out while "Global tweaks only" is on). */
+    public static int total(Context c, Category cat) {
+        int n = 0;
+        for (Item it : cat.items()) if (countable(it) && !hidden(c, it)) n++;
+        return n;
+    }
+
+    /** Every setting in the app, Advanced included (as shown: see total(Context, Category)). */
     public static int total(Context c) {
         int n = 0;
-        for (Category cat : all()) n += total(cat);
+        for (Category cat : all()) n += total(c, cat);
         return n;
     }
 
     public static int changedCount(Context c, Category cat) {
         int n = 0;
-        for (Item it : cat.items()) if (changed(c, it)) n++;
+        for (Item it : cat.items()) if (!hidden(c, it) && changed(c, it)) n++;
         return n;
     }
 
@@ -383,7 +444,7 @@ public final class Catalog {
                 Group hit = new Group(cat.title + " · " + g.title);
                 for (Item it : g.items) {
                     String hay = (it.feature.title + " " + (it.feature.desc == null ? "" : it.feature.desc) + " " + g.title + " " + cat.title).toLowerCase(Locale.ROOT);
-                    if (hay.contains(needle) && (adv || !it.fine)) hit.items.add(it);
+                    if (hay.contains(needle) && (adv || !it.fine) && !hidden(c, it)) hit.items.add(it);
                 }
                 if (!hit.items.isEmpty()) res.groups.add(hit);
             }

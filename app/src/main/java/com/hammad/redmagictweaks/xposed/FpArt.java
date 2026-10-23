@@ -42,13 +42,13 @@ final class FpArt {
     static int intervalMs() {
         int i = Cfg.choice(FingerprintCustomFeatures.FP_ANIM_INTERVAL);
         if (i < 0 || i >= FingerprintCustomFeatures.INTERVAL_MS.length) i = 0;
-        return FingerprintCustomFeatures.INTERVAL_MS[i];
+        return Math.max(0, Cfg.num(FingerprintCustomFeatures.FP_ANIM_INTERVAL, FingerprintCustomFeatures.INTERVAL_MS[i]));
     }
 
     static int animSizePercent() {
         int i = Cfg.choice(FingerprintCustomFeatures.FP_ANIM_SIZE);
         if (i < 0 || i >= FingerprintCustomFeatures.SIZE_PERCENT.length) i = 0;
-        return FingerprintCustomFeatures.SIZE_PERCENT[i];
+        return Math.max(10, Cfg.num(FingerprintCustomFeatures.FP_ANIM_SIZE, FingerprintCustomFeatures.SIZE_PERCENT[i]));
     }
 
     static int iconStyle() {
@@ -59,16 +59,47 @@ final class FpArt {
     static int iconSizePercent() {
         int i = Cfg.choice(FingerprintCustomFeatures.FP_ICON_SIZE);
         if (i < 0 || i >= FingerprintCustomFeatures.ICON_SIZE_PERCENT.length) i = 0;
-        return FingerprintCustomFeatures.ICON_SIZE_PERCENT[i];
+        return Math.max(10, Cfg.num(FingerprintCustomFeatures.FP_ICON_SIZE, FingerprintCustomFeatures.ICON_SIZE_PERCENT[i]));
     }
 
     static boolean iconHidden() { return Cfg.on(FingerprintCustomFeatures.FP_ICON_HIDE); }
+
+    private static int pick(String key, int[] values) {
+        int i = Cfg.choice(key);
+        return Cfg.num(key, values[i > 0 && i < values.length ? i : 0]);
+    }
+
+    private static final java.util.Map<android.view.View, Boolean> placed = new java.util.WeakHashMap<>();
+
+    /**
+     * Opacity and nudge of the idle fingerprint symbol (stock or custom), on the lock screen sensor view and the PIN
+     * screen icon. The image alpha (and the background's, where custom icons go) is used, not the view's, so System UI's
+     * own fades keep working. Stock values leave a view alone unless it was changed before.
+     */
+    static void place(android.widget.ImageView v) {
+        if (v == null) return;
+        int opacity = Math.max(0, Math.min(100, pick(FingerprintCustomFeatures.FP_ICON_OPACITY, FingerprintCustomFeatures.ICON_OPACITY_PERCENT)));
+        int dx = pick(FingerprintCustomFeatures.FP_ICON_DX, FingerprintCustomFeatures.ICON_NUDGE_DP);
+        int dy = pick(FingerprintCustomFeatures.FP_ICON_DY, FingerprintCustomFeatures.ICON_NUDGE_DP);
+        boolean stock = opacity == 100 && dx == 0 && dy == 0;
+        if (stock && placed.remove(v) == null) return;
+        int a = Math.round(opacity * 255 / 100f);
+        v.setImageAlpha(a);
+        android.graphics.drawable.Drawable bg = v.getBackground();
+        if (bg != null) bg.mutate().setAlpha(a);
+        float d = v.getResources().getDisplayMetrics().density;
+        v.setTranslationX(dx * d);
+        v.setTranslationY(dy * d);
+        if (!stock) placed.put(v, Boolean.TRUE);
+    }
 
     /** True when the idle icon should be touched at all (hidden or replaced). */
     static boolean iconActive() { return iconHidden() || Cfg.on(FingerprintCustomFeatures.FP_ICON); }
 
     /** Colour for the code-drawn glyphs: the configured one, or the keyguard colour when "follow lock screen". */
     static int iconColor(int keyguardColor) {
+        int[] cc = Cfg.color(FingerprintCustomFeatures.FP_ICON_COLOR);
+        if (cc != null) return cc[0];
         int i = Cfg.choice(FingerprintCustomFeatures.FP_ICON_COLOR);
         if (i > 0 && i < FingerprintCustomFeatures.ICON_COLOR_ARGB.length) return FingerprintCustomFeatures.ICON_COLOR_ARGB[i];
         return (keyguardColor >>> 24) == 0 ? 0xffffffff : keyguardColor;

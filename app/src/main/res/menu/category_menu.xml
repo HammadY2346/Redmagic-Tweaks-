@@ -2,5 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <item android:id="@+id/action_advanced" android:title="Show advanced settings" android:checkable="true" app:showAsAction="never" />
     <item android:id="@+id/action_detailed" android:title="Detailed mode (show descriptions)" android:checkable="true" app:showAsAction="never" />
+    <item android:id="@+id/action_oneui_home" android:title="I use One UI Home (hide stock launcher &amp; recents)" android:checkable="true" app:showAsAction="never" />
+    <item android:id="@+id/action_new_badges" android:title="NEW badges…" app:showAsAction="never" />
+    <item android:id="@+id/action_global" android:title="Global tweaks only (hide China-only)" android:checkable="true" app:showAsAction="never" />
     <item android:id="@+id/action_reset_page" android:title="Reset this page to stock…" app:showAsAction="never" />
 </menu>

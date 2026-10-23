@@ -27,6 +27,7 @@ public final class FingerprintCustomFeatures {
     public static final String FP_ICON_STYLE = "fpc_icon_style";
     public static final String FP_ICON_COLOR = "fpc_icon_color";
     public static final String FP_ICON_SIZE = "fpc_icon_size";
+    public static final String FP_ICON_OPACITY = "fpc_icon_opacity", FP_ICON_DX = "fpc_icon_dx", FP_ICON_DY = "fpc_icon_dy";
     /** nubia-ly "Hide fingerprint icon": no idle symbol on the lock screen and the PIN screen (the sensor still works). */
     public static final String FP_ICON_HIDE = "fpc_icon_hide";
     /** ACTION: the UI wires this to a folder picker and calls Frames.fpImportFolder(ctx, treeUri). */
@@ -284,6 +285,12 @@ public final class FingerprintCustomFeatures {
     public static final String[] ICON_COLORS = {"Follow lock screen (stock)", "White", "RedMagic red", "Orange", "Gold", "Cyan", "Black"};
     public static final int[] ICON_COLOR_ARGB = {0, 0xffffffff, 0xffff3030, 0xffff8c1e, 0xffffc850, 0xff38e0ff, 0xff000000};
 
+    public static final String[] ICON_OPACITIES = {"Stock (100 %)", "90 %", "75 %", "60 %", "50 %", "35 %", "20 %"};
+    public static final int[] ICON_OPACITY_PERCENT = {100, 90, 75, 60, 50, 35, 20};
+    public static final String[] ICON_NUDGES_X = {"Stock (centred)", "2 dp left", "4 dp left", "8 dp left", "2 dp right", "4 dp right", "8 dp right"};
+    public static final String[] ICON_NUDGES_Y = {"Stock (centred)", "2 dp up", "4 dp up", "8 dp up", "2 dp down", "4 dp down", "8 dp down"};
+    public static final int[] ICON_NUDGE_DP = {0, -2, -4, -8, 2, 4, 8};
+
     public static final String[] ICON_SIZES = {"Stock", "80 %", "120 %", "140 %"};
     public static final int[] ICON_SIZE_PERCENT = {100, 80, 120, 140};
 
@@ -295,13 +302,16 @@ public final class FingerprintCustomFeatures {
         new String[]{"com.fingerprint.sensorservice", "com.android.systemui"},
         new Features.Feature(FP_ANIM, "Custom fingerprint animation", "Replaces the picture of the stock effect while your finger rests on the sensor with the set chosen below. Position and scan duration follow the phone's own animation, so keep any stock animation style selected in Settings (not \"none\"). Applies on the next press."),
         new Features.Feature(FP_ANIM_SET, "Animation set", ("RisingOS effects (MIUI, OnePlus, PureView, ROG…) ported from nubia-ly, two " + com.hammad.redmagictweaks.BuildConfig.APP_NAME + " sets, or the folder you import below. \"None\" plays nothing while the stock effect would."), Features.Type.CHOICE, ANIM_SETS, 0),
-        new Features.Feature(FP_ANIM_INTERVAL, ("Frame timing (" + com.hammad.redmagictweaks.BuildConfig.APP_NAME + " / imported sets)"), "How fast imported frames play; the RisingOS sets always stretch over the stock scan. \"Match the stock animation length\" does the same for your own frames.", Features.Type.CHOICE, INTERVALS, 0),
-        new Features.Feature(FP_ANIM_SIZE, "Animation size", "Scales the effect inside the stock animation area around the sensor.", Features.Type.CHOICE, SIZES, 0),
+        new Features.Feature(FP_ANIM_INTERVAL, ("Frame timing (" + com.hammad.redmagictweaks.BuildConfig.APP_NAME + " / imported sets)"), "How fast imported frames play; the RisingOS sets always stretch over the stock scan. \"Match the stock animation length\" does the same for your own frames.", Features.Type.CHOICE, INTERVALS, 0).num(8, 100, 1, "ms"),
+        new Features.Feature(FP_ANIM_SIZE, "Animation size", "Scales the effect inside the stock animation area around the sensor.", Features.Type.CHOICE, SIZES, 0).num(40, 140, 1, "%"),
         new Features.Feature(FP_IMPORT, "Import custom fingerprint frames…", "Pick a folder of PNG/WEBP/JPG frames (sorted by file name, square with a transparent background recommended, up to 400 frames; the first 120 are used). A file named icon.png / icon.webp in the same folder becomes the idle icon for the \"Icon shipped with the animation set\" style.", Features.Type.ACTION, null, 0),
         new Features.Feature(FP_ICON, "Custom idle fingerprint icon", "Replaces the fingerprint symbol shown on the lock screen (and the PIN screen) with the style chosen below. Enrollment, in-app fingerprint prompts and the Always-on display keep the stock symbol. Lock and unlock once after changing."),
         new Features.Feature(FP_ICON_STYLE, "Icon style", "Code-drawn shapes follow the colour below; the RisingOS artwork keeps its own colours; two styles take the picture from the selected animation set.", Features.Type.CHOICE, ICON_STYLES, 0),
         new Features.Feature(FP_ICON_COLOR, "Icon colour", "Only used by the code-drawn icon styles (Rings, Scan frame, Hexagon, Diamond, Dot).", Features.Type.CHOICE, ICON_COLORS, 0),
-        new Features.Feature(FP_ICON_SIZE, "Icon size", "Scales the idle icon relative to the stock size.", Features.Type.CHOICE, ICON_SIZES, 0),
+        new Features.Feature(FP_ICON_SIZE, "Icon size", "Scales the idle icon relative to the stock size.", Features.Type.CHOICE, ICON_SIZES, 0).num(50, 200, 5, "%"),
+        new Features.Feature(FP_ICON_OPACITY, "Icon opacity", "Makes the idle fingerprint symbol (stock or custom) partly see-through on the lock screen and the PIN screen. Applies the next time the icon shows.", Features.Type.CHOICE, ICON_OPACITIES, 0).num(10, 100, 5, "%"),
+        new Features.Feature(FP_ICON_DX, "Icon nudge left / right", "Moves the idle fingerprint symbol sideways, for a custom icon that does not sit exactly over the sensor. Touch still unlocks at the real sensor. Applies the next time the icon shows.", Features.Type.CHOICE, ICON_NUDGES_X, 0).num(-40, 40, 1, "dp"),
+        new Features.Feature(FP_ICON_DY, "Icon nudge up / down", "Moves the idle fingerprint symbol up or down, for a custom icon that does not sit exactly over the sensor. Touch still unlocks at the real sensor. Applies the next time the icon shows.", Features.Type.CHOICE, ICON_NUDGES_Y, 0).num(-40, 40, 1, "dp"),
         new Features.Feature(FP_ICON_HIDE, "Hide fingerprint icon", "Shows no idle fingerprint symbol at all on the lock screen and PIN screen; touching the sensor position still unlocks. Overrides the custom icon. Lock and unlock once after changing.")
     );
 

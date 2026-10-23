@@ -203,7 +203,22 @@ final class SensorFingerprintHooks {
                 } catch (Throwable t) { Lx.e("fingerprint: icon", t); }
             }
         };
+        // opacity / nudge, for the stock symbol too (lock screen only: in-app prompts and enrollment stay stock)
+        XC_MethodHook place = new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                try {
+                    String name = p.method.getName();
+                    boolean fromSystemUi = name.equals("setSensorViewIconForRedMagic") ? Boolean.TRUE.equals(p.args[0]) : p.args.length > 1 && Boolean.TRUE.equals(p.args[1]);
+                    if (!fromSystemUi) return;
+                    Object iv = XposedHelpers.getObjectField(p.thisObject, "mSensorView");
+                    if (iv instanceof ImageView) FpArt.place((ImageView) iv);
+                } catch (Throwable t) { Lx.e("fingerprint: icon place", t); }
+            }
+        };
         int n = 0;
+        n += H.hookAll(sv, "setSensorViewIconForRedMagic", place);
+        n += H.hookAll(sv, "updateSensorViewIconForStyle", place);
+        n += H.hookAll(sv, "updateSensorViewIcon", place);
         n += H.hookAll(sv, "setSensorViewIconForRedMagic", after);
         n += H.hookAll(sv, "updateSensorViewIconForStyle", after);
         n += H.hookAll(sv, "updateSensorViewIcon", after);
@@ -220,13 +235,14 @@ final class SensorFingerprintHooks {
         final Context c = ctx(view);
         if (!FpArt.iconNeedsProvider()) {
             background(view, FpArt.icon(c, keyguardColor));           // module resources / code-drawn: instant, no flicker
+            FpArt.place(view);
             return;
         }
         // frame-store pictures come from the module app's provider: off the main thread, then swap on the main thread
         new Thread(() -> {
             try {
                 final Drawable d = FpArt.icon(c, keyguardColor);
-                view.post(() -> { if (FpArt.iconActive()) background(view, d); });
+                view.post(() -> { if (FpArt.iconActive()) { background(view, d); FpArt.place(view); } });
             } catch (Throwable t) { Lx.e("fingerprint: icon load", t); }
         }, "rmtweaks-fp-icon").start();
     }

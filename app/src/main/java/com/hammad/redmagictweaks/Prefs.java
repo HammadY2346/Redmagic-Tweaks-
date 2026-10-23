@@ -42,12 +42,17 @@ public final class Prefs {
     public static int choice(Context c, String key) { return get(c).getInt(key, 0); }
     public static void set(Context c, String key, boolean v) { get(c).edit().putBoolean(key, v).commit(); }
     public static void set(Context c, String key, int v) { get(c).edit().putInt(key, v).commit(); }
+    public static String str(Context c, String key) { return get(c).getString(key, null); }
+    /** null removes the setting. */
+    public static void setStr(Context c, String key, String v) {
+        if (v == null) get(c).edit().remove(key).commit(); else get(c).edit().putString(key, v).commit();
+    }
 
     public static int enabledCount(Context c, Features.Section s) {
         int n = 0;
         for (Features.Feature f : s.features) {
             if (f.type == Features.Type.ACTION) continue;
-            if (f.type == Features.Type.SWITCH ? on(c, f.key) : choice(c, f.key) > 0) n++;
+            if (f.type == Features.Type.SWITCH ? on(c, f.key) : choice(c, f.key) > 0 || on(c, f.key + Features.CUSTOM)) n++;
         }
         return n;
     }

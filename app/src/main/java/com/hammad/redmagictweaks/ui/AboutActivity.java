@@ -76,9 +76,11 @@ public class AboutActivity extends BaseActivity {
             return;
         }
         app.addView(text("Made and tested on the REDMAGIC 10S Pro (NX789J) with the China firmware, RedMagic OS 11.0.11 (Android 16). "
-                + "Global and EEA firmware differ a little and are not tested yet.", 13.5f, R.color.text, 400, Gravity.CENTER, 12));
-        app.addView(text("Not affiliated with nubia, ZTE or REDMAGIC. REDMAGIC is their trademark. Samsung One UI is design inspiration only: "
-                + "no Samsung files are shipped.", 12.5f, R.color.text_dim, 400, Gravity.CENTER, 10));
+                + "Every hook was also checked against the global / EEA firmware (RedMagic OS 11.0.4, Android 16); tweaks that "
+                + "only work on China firmware are hidden there.", 13.5f, R.color.text, 400, Gravity.CENTER, 12));
+        app.addView(text("Not affiliated with nubia, ZTE or REDMAGIC. REDMAGIC is their trademark."
+                + (com.hammad.redmagictweaks.FlavorBits.leftOut("preset_one_ui") ? "" : " Samsung One UI is design inspiration only: no Samsung files are shipped."),
+                12.5f, R.color.text_dim, 400, Gravity.CENTER, 10));
         c.addView(app);
 
         c.addView(subhead("Links"));
@@ -92,7 +94,12 @@ public class AboutActivity extends BaseActivity {
         c.addView(subhead("Credits"));
         LinearLayout credits = new LinearLayout(this);
         credits.setOrientation(LinearLayout.VERTICAL);
-        for (int i = 0; i < CREDITS.length; i++) credits.addView(row(CREDITS[i][0], CREDITS[i][1], CREDITS[i][2], i == 0, i == CREDITS.length - 1));
+        final boolean noOneUi = com.hammad.redmagictweaks.FlavorBits.leftOut("preset_one_ui");
+        for (int i = 0; i < CREDITS.length; i++) {
+            String what = CREDITS[i][1];
+            if (noOneUi) what = what.replace(", the One UI 8 work", "").replace(" and the One UI style System UI font; One UI clock digits", "");
+            credits.addView(row(CREDITS[i][0], what, CREDITS[i][2], i == 0, i == CREDITS.length - 1));
+        }
         c.addView(credits);
         Ui.fonts(c);
     }

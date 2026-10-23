@@ -20,6 +20,13 @@ public final class StatusBarFeatures {
     public static final String SB_NET_SHOW = "sb_net_show";
     public static final String SB_NET_FAST = "sb_net_fast";
     public static final String SB_NET_STYLE = "sb_net_style";
+    public static final String SB_NET_COLOR = "sb_net_color", SB_NET_DX = "sb_net_dx", SB_NET_DY = "sb_net_dy";
+    /** Network speed colour: 0 stock (follows the icons), 1 the clock's colour, then ClockFeatures.COLOR_VALUES[i - 1]. */
+    public static final String[] NET_COLORS = {"Stock (follows the icons)", "Same as the clock", "White", "Black", "Red", "Orange", "Amber", "Green", "Teal", "Cyan", "Blue", "Purple", "Pink"};
+    public static final String[] NET_NUDGES_X = {"Stock", "2 dp left", "4 dp left", "8 dp left", "2 dp right", "4 dp right", "8 dp right"};
+    public static final String[] NET_NUDGES_Y = {"Stock", "1 dp up", "2 dp up", "4 dp up", "1 dp down", "2 dp down", "4 dp down"};
+    public static final int[] NET_NUDGE_X_DP = {0, -2, -4, -8, 2, 4, 8};
+    public static final int[] NET_NUDGE_Y_DP = {0, -1, -2, -4, 1, 2, 4};
     // icon hiding
     public static final String SB_HIDE_VPN = "sb_hide_vpn";
     public static final String SB_HIDE_NFC = "sb_hide_nfc";
@@ -95,24 +102,27 @@ public final class StatusBarFeatures {
         new String[]{"com.android.systemui"},
         // ---- sizes: everything that changes how big the status bar looks, in one place (the clock / icon / battery
         // entries share their key with the Status bar clock, Status bar icons and Look & feel sections, so both places stay in sync)
-        new Features.Feature(SB_HEIGHT, "Status bar height", "Makes the whole status bar taller or shorter; apps and the lock screen follow. Keep it at 95 % or more if icons get cut. Restart System UI after changing.", Features.Type.CHOICE, HEIGHTS, 0),
-        new Features.Feature(ClockFeatures.CLK_SIZE, "Clock size", "Size of the status bar clock (same setting as in \"Status bar clock\"). Applies at the next clock tick.", Features.Type.CHOICE, ClockFeatures.SIZES, 0),
-        new Features.Feature(IconPackFeatures.SBI_SCALE, "Status icon size", "Wi-Fi, signal, Bluetooth and the other system icons on the right (same setting as in \"Status bar icons\"). Applies within a minute.", Features.Type.CHOICE, IconPackFeatures.SCALES, 0),
-        new Features.Feature(CosmeticsFeatures.COS_BATTERY_SCALE, "Battery size", "The whole battery icon with its percentage (same setting as in \"Look & feel\"). Applies within a minute.", Features.Type.CHOICE, IconPackFeatures.SCALES, 0),
+        new Features.Feature(SB_HEIGHT, "Status bar height", "Makes the whole status bar taller or shorter; apps and the lock screen follow. Keep it at 95 % or more if icons get cut. Restart System UI after changing.", Features.Type.CHOICE, HEIGHTS, 0).num(80, 150, 1, "%"),
+        new Features.Feature(ClockFeatures.CLK_SIZE, "Clock size", "Size of the status bar clock (same setting as in \"Status bar clock\"). Applies at the next clock tick.", Features.Type.CHOICE, ClockFeatures.SIZES, 0).num(60, 160, 1, "%"),
+        new Features.Feature(IconPackFeatures.SBI_SCALE, "Status icon size", "Wi-Fi, signal, Bluetooth and the other system icons on the right (same setting as in \"Status bar icons\"). Applies within a minute.", Features.Type.CHOICE, IconPackFeatures.SCALES, 0).num(50, 160, 1, "%"),
+        new Features.Feature(CosmeticsFeatures.COS_BATTERY_SCALE, "Battery size", "The whole battery icon with its percentage (same setting as in \"Look & feel\"). Applies within a minute.", Features.Type.CHOICE, IconPackFeatures.SCALES, 0).num(50, 160, 1, "%"),
         new Features.Feature(CosmeticsFeatures.COS_BATTERY_STYLE, "Battery shape", CosmeticsFeatures.STYLE_DESC + " Same setting as in \"Look & feel\".", Features.Type.CHOICE, CosmeticsFeatures.BATTERY_STYLES, 0),
         new Features.Feature(CosmeticsFeatures.COS_BATTERY_STOCK_READABLE, "Readable number in the stock battery", CosmeticsFeatures.STOCK_READABLE_DESC),
-        new Features.Feature(IconPackFeatures.SBI_NOTIF_SCALE, "Notification icon size", "App icons of notifications on the left (same setting as in \"Status bar icons\"). Applies within a minute.", Features.Type.CHOICE, IconPackFeatures.SCALES, 0),
-        new Features.Feature(SB_NET_SIZE, "Network speed text size", "Size of the network speed readout (works with every network speed style). Restart System UI after changing.", Features.Type.CHOICE, TEXT_SIZES, 0),
-        new Features.Feature(SB_SIDE_PAD, "Status bar side margins", "Moves the clock and the battery further from the screen edges, or a little closer. Restart System UI after changing.", Features.Type.CHOICE, SIDE_PADS, 0),
+        new Features.Feature(IconPackFeatures.SBI_NOTIF_SCALE, "Notification icon size", "App icons of notifications on the left (same setting as in \"Status bar icons\"). Applies within a minute.", Features.Type.CHOICE, IconPackFeatures.SCALES, 0).num(50, 160, 1, "%"),
+        new Features.Feature(SB_NET_SIZE, "Network speed text size", "Size of the network speed readout (works with every network speed style). Restart System UI after changing.", Features.Type.CHOICE, TEXT_SIZES, 0).num(60, 160, 1, "%"),
+        new Features.Feature(SB_SIDE_PAD, "Status bar side margins", "Moves the clock and the battery further from the screen edges, or a little closer. Restart System UI after changing.", Features.Type.CHOICE, SIDE_PADS, 0).num(-8, 32, 1, "dp"),
         new Features.Feature(SB_CLOCK_SECONDS, "Seconds in the status bar clock", "The status bar clock ticks every second. Restart System UI after changing."),
         new Features.Feature(SB_CLOCK_FORMAT, "Status bar clock format", "Geek formats with weekday, date or seconds (examples shown for Monday 21 March, 12:34:56).", Features.Type.CHOICE, CLOCK_FORMATS, 0),
         new Features.Feature(SB_BATTERY_STYLE, "Battery icon style", "Where the battery percentage is shown, or hide the icon / the whole battery. Restart System UI after changing.", Features.Type.CHOICE, BATTERY_STYLES, 0),
         new Features.Feature(SB_BATTERY_INFO, "Battery readout in the status bar", "Shows live battery temperature, charge / discharge current and power as text in the status bar (read from the kernel).", Features.Type.CHOICE, BATTERY_INFO, 0),
         new Features.Feature(SB_BATTERY_INFO_POS, "Battery readout position", "Restart System UI after changing.", Features.Type.CHOICE, BATTERY_INFO_POS, 0),
-        new Features.Feature(SB_BATTERY_INTERVAL, "Battery readout refresh", "How often the status bar readout is refreshed.", Features.Type.CHOICE, INTERVALS, 0),
+        new Features.Feature(SB_BATTERY_INTERVAL, "Battery readout refresh", "How often the status bar readout is refreshed.", Features.Type.CHOICE, INTERVALS, 0).num(1, 30, 1, "s"),
         new Features.Feature(SB_NET_SHOW, "Always show network speed", "Turns the network speed indicator on and shows it in the top status bar too, not only in the pull-down header. Restart System UI after changing."),
         new Features.Feature(SB_NET_FAST, "Network speed refreshes every second", "Stock updates the speed every 3 seconds."),
         new Features.Feature(SB_NET_STYLE, "Network speed style", "Split upload and download speeds into two small rows instead of one total value. Restart System UI after changing.", Features.Type.CHOICE, NET_STYLES, 0),
+        new Features.Feature(SB_NET_COLOR, "Network speed colour", "A fixed colour for the network speed readout instead of the automatic light / dark tint, or the same colour as the clock. Applies the next time the speed updates.", Features.Type.CHOICE, NET_COLORS, 0),
+        new Features.Feature(SB_NET_DX, "Network speed nudge left / right", "Moves the network speed readout sideways in the status bar. Applies the next time the speed updates.", Features.Type.CHOICE, NET_NUDGES_X, 0).num(-20, 20, 1, "dp"),
+        new Features.Feature(SB_NET_DY, "Network speed nudge up / down", "Moves the network speed readout up or down in the status bar. Applies the next time the speed updates.", Features.Type.CHOICE, NET_NUDGES_Y, 0).num(-10, 10, 1, "dp"),
         new Features.Feature(SB_HIDE_VPN, "Hide VPN icon", "Hides the key / VPN status icon."),
         new Features.Feature(SB_HIDE_NFC, "Hide NFC icon", ""),
         new Features.Feature(SB_HIDE_ALARM, "Hide alarm icon", ""),

@@ -48,7 +48,7 @@ final class StatusBarSizeHooks {
         XC_MethodHook scale = new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
                 if (p.hasThrowable() || !(p.getResult() instanceof Integer)) return;
-                int pct = StatusBarFeatures.heightPercent(height.get());
+                int pct = height.value(StatusBarFeatures.heightPercent(height.get()));
                 if (pct == 100) return;
                 int v = (Integer) p.getResult();
                 if (v > 0) p.setResult(Math.max(1, Math.round(v * pct / 100f)));
@@ -73,7 +73,7 @@ final class StatusBarSizeHooks {
         H.hook(m, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
                 if (p.hasThrowable()) return;
-                int dp = StatusBarFeatures.sidePadDp(side.get());
+                int dp = side.value(StatusBarFeatures.sidePadDp(side.get()));
                 if (dp == 0) return;
                 try {
                     View v = (View) p.thisObject;
@@ -86,7 +86,7 @@ final class StatusBarSizeHooks {
 
     // ------------------------------------------------------------------ network speed text
 
-    static int netPercent() { return StatusBarFeatures.netPercent(net.get()); }
+    static int netPercent() { return net.value(StatusBarFeatures.netPercent(net.get())); }
 
     /** text view -> {base px (what the host / net style set), px we applied} */
     private static final Map<TextView, float[]> netBase = new WeakHashMap<>();

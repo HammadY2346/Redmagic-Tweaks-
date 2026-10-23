@@ -24,10 +24,10 @@ public final class RecentsFeatures {
             Features.Type.CHOICE, RecentsArt.CLEARS, 0),
         new Features.Feature(RecentsArt.KEY_CORNERS, "Card corners",
             "Corner roundness of the app screenshots; the swipe-up animation morphs into the same corners. Auto: One UI 8 26 dp, carousel and cover flow 24 dp, stack 22 dp, else stock 16 dp. Restart the launcher.",
-            Features.Type.CHOICE, RecentsArt.CORNERS, 0),
+            Features.Type.CHOICE, RecentsArt.CORNERS, 0).num(0, 48, 1, "dp"),
         new Features.Feature(RecentsArt.KEY_SIZE, "Card size",
             "Smaller cards show more of the apps next to them. Auto: One UI 8 90 %, carousel and stack 92 %, cover flow 86 %. Only the list layout. Restart the launcher.",
-            Features.Type.CHOICE, RecentsArt.SIZES, 0)
+            Features.Type.CHOICE, RecentsArt.SIZES, 0).num(60, 100, 1, "%")
     );
 
     static {

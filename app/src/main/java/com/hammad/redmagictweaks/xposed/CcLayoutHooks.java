@@ -65,7 +65,7 @@ final class CcLayoutHooks {
         at = now;
         int p = Cfg.choice(QsFeatures.QS_CC_SLIDER_POS);
         if (p < 0 || p > BOTTOM) p = STOCK;
-        int sz = QsFeatures.sliderSizeDp(Cfg.choice(QsFeatures.QS_CC_SLIDER_SIZE));
+        int sz = Math.max(24, Math.min(120, Cfg.num(QsFeatures.QS_CC_SLIDER_SIZE, QsFeatures.sliderSizeDp(Cfg.choice(QsFeatures.QS_CC_SLIDER_SIZE)))));
         pos = p; sizeDp = sz;
     }
 

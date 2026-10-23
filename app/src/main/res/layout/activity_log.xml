@@ -10,6 +10,25 @@
         android:background="@color/bg" app:title="@string/logs" app:titleTextColor="@color/text"
         app:navigationIcon="@drawable/ic_back" app:navigationIconTint="@color/text"
         app:menu="@menu/log_menu" />
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:paddingStart="20dp" android:paddingEnd="12dp">
+        <LinearLayout
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/log_switch" android:textColor="@color/text" android:textSize="16sp" />
+            <TextView
+                android:id="@+id/log_state"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="@color/text_dim" android:textSize="13sp" />
+        </LinearLayout>
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/log_switch"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    </LinearLayout>
     <com.google.android.material.chip.ChipGroup
         android:id="@+id/filters"
         android:layout_width="match_parent" android:layout_height="wrap_content"

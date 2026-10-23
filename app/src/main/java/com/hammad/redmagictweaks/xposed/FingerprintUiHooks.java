@@ -38,7 +38,18 @@ final class FingerprintUiHooks {
                 } catch (Throwable t) { Lx.e("fingerprint-ui: icon", t); }
             }
         };
+        // opacity / nudge, for the stock symbol too
+        XC_MethodHook place = new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                try {
+                    Object iv = XposedHelpers.getObjectField(p.thisObject, "mFingerprintIcon");
+                    if (iv instanceof ImageView) FpArt.place((ImageView) iv);
+                } catch (Throwable t) { Lx.e("fingerprint-ui: icon place", t); }
+            }
+        };
         int n = 0;
+        for (String m : new String[]{"refreshFillLightLayoutFingerColor", "setColor", "tryInflateFingerprintIcon", "setFingerprintIconVisibility", "handleShowFingerprintIcon"})
+            n += H.hookAll(f, m, place);
         n += H.hookAll(f, "refreshFillLightLayoutFingerColor", after);
         n += H.hookAll(f, "setColor", after);
         n += H.hookAll(f, "tryInflateFingerprintIcon", after);
@@ -65,6 +76,7 @@ final class FingerprintUiHooks {
         if (!FpArt.iconNeedsProvider()) {
             Drawable d = FpArt.icon(c, color);
             if (d != null) { view.setImageTintList(null); view.setImageDrawable(d); }
+            FpArt.place(view);
             return;
         }
         new Thread(() -> {
@@ -74,6 +86,7 @@ final class FingerprintUiHooks {
                     if (!FpArt.iconActive() || d == null) return;
                     view.setImageTintList(null);
                     view.setImageDrawable(d);
+                    FpArt.place(view);
                 });
             } catch (Throwable t) { Lx.e("fingerprint-ui: icon load", t); }
         }, "rmtweaks-fp-icon").start();

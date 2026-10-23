@@ -125,6 +125,52 @@ public final class QsArt {
     public static int oneUi8Soft(boolean dark) { return dark ? 0x26FFFFFF : 0x14000000; }
     public static int oneUi8Text(boolean dark) { return dark ? 0xFFFFFFFF : 0xFF1C1C1E; }
 
+    // ================================================================================================= chosen colours
+
+    /** Colours for the active tile and the brightness / volume fill (plain, wallpaper, gradients). Index 0 = stock. */
+    public static final String[] PANEL_COLORS = {"Stock", "Wallpaper colour", "One UI blue", "RedMagic red", "Blue", "Green", "Purple", "Orange",
+            "Pink", "Teal", "Gold", "White", "Sunset gradient", "Ocean gradient", "RedMagic gradient", "Aurora gradient"};
+    private static final int[][] PANEL_RGB = {null, null, {ONE_UI_BLUE}, {0xFFE8343B}, {0xFF3E8BFF}, {0xFF34C759}, {0xFF9B6BFF}, {0xFFFF9F0A},
+            {0xFFFF5C93}, {0xFF2EC4B6}, {0xFFE6B84C}, {0xFFF4F4F6}, {0xFFFF9F0A, 0xFFFF2D55}, {0xFF2EC4B6, 0xFF3E5BFF}, {0xFFFF5A3C, 0xFFC8102E},
+            {0xFF34C759, 0xFF9B6BFF}};
+
+    /** {start, end} colours of a PANEL_COLORS choice (equal for a plain colour), or null for stock. */
+    public static int[] panelColors(android.content.Context ctx, int choice, boolean dark) {
+        if (choice <= 0 || choice >= PANEL_RGB.length) return null;
+        if (choice == 1) {
+            int a;
+            try { a = ctx.getColor(dark ? android.R.color.system_accent1_200 : android.R.color.system_accent1_500); } catch (Throwable t) { a = 0xFF3E8BFF; }
+            return new int[]{a, a};
+        }
+        int[] c = PANEL_RGB[choice];
+        return c.length == 1 ? new int[]{c[0], c[0]} : c.clone();
+    }
+
+    /** A readable icon / text colour on {@code bg}: near-black on light colours, white on dark ones. */
+    public static int onColor(int bg) {
+        double l = (0.299 * Color.red(bg) + 0.587 * Color.green(bg) + 0.114 * Color.blue(bg)) / 255.0;
+        return l > 0.62 ? 0xFF1C1C1E : 0xFFFFFFFF;
+    }
+
+    /** Paints {@code colors} (plain or a start-to-end gradient along x) into whatever {@code draw} paints inside {@code bounds}. */
+    public static void tinted(Canvas canvas, RectF bounds, int[] colors, NativeDraw draw) throws Throwable {
+        if (bounds.isEmpty()) { draw.draw(); return; }
+        int layer = canvas.saveLayer(bounds, null);
+        try {
+            draw.draw();
+            Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+            p.setXfermode(new android.graphics.PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+            fillPaint(p, bounds, colors);
+            canvas.drawRect(bounds, p);
+        } finally { canvas.restoreToCount(layer); }
+    }
+
+    /** Solid colour or a horizontal gradient over {@code b}. */
+    public static void fillPaint(Paint p, RectF b, int[] colors) {
+        if (colors[0] == colors[1]) { p.setShader(null); p.setColor(colors[0]); }
+        else { p.setColor(0xFFFFFFFF); p.setShader(new LinearGradient(b.left, b.top, b.right, b.top, colors[0], colors[1], Shader.TileMode.CLAMP)); }
+    }
+
     public static int oneUiTrack(boolean dark) { return dark ? 0xFF3A3A3F : 0xFFD6D6DB; }
     public static int oneUiFill(boolean dark) { return dark ? 0xFFEDEDF0 : 0xFFFFFFFF; }
     public static int oneUiCard(boolean dark) { return dark ? 0xFF1E1E22 : 0xFFFFFFFF; }
@@ -247,6 +293,17 @@ public final class QsArt {
      * separately by {@link #paintBrightnessGlyph} once the whole slider has been drawn).
      */
     public static boolean drawBrightness(int style, Canvas canvas, GradientDrawable drawable, float density, boolean fill, boolean dark, NativeDraw nativeDraw) throws Throwable {
+        return drawBrightness(style, canvas, drawable, density, fill, dark, null, nativeDraw);
+    }
+
+    /** As above; {@code fillColors} (PANEL_COLORS) replaces the fill colour of any style, null = the style's own. */
+    public static boolean drawBrightness(int style, Canvas canvas, GradientDrawable drawable, float density, boolean fill, boolean dark, int[] fillColors, NativeDraw nativeDraw) throws Throwable {
+        if (fill && fillColors != null && style != ONE_UI_BRIGHTNESS) {
+            final GradientDrawable d = drawable;
+            NativeDraw styled = style <= 0 ? nativeDraw : () -> { if (!drawBrightness(style, canvas, d, density, nativeDraw)) nativeDraw.draw(); };
+            tinted(canvas, new RectF(drawable.getBounds()), fillColors, styled);
+            return true;
+        }
         if (style == ONE_UI_BRIGHTNESS) {
             Rect bounds = drawable.getBounds();
             if (bounds.isEmpty() || drawable.getShape() != GradientDrawable.RECTANGLE) return false;
@@ -257,6 +314,7 @@ public final class QsArt {
             for (float r : radii) if (!Float.isFinite(r) || r < 0) return false; else if (r < bounds.height() / 2f) round = false;
             Paint p = new Paint(Paint.ANTI_ALIAS_FLAG); p.setColor(fill ? oneUiFill(dark) : oneUiTrack(dark));
             RectF b = new RectF(bounds);
+            if (fill && fillColors != null) fillPaint(p, b, fillColors);
             // One UI tracks are fully rounded; keep a flatter native radius only when the firmware uses one deliberately.
             if (round || radii[0] <= 0) canvas.drawRoundRect(b, b.height() / 2, b.height() / 2, p);
             else { Path path = new Path(); path.addRoundRect(b, radii, Path.Direction.CW); canvas.drawPath(path, p); }
@@ -270,7 +328,10 @@ public final class QsArt {
      * and a fully rounded fill from the start edge, never shorter than the track is thick. {@code track} is in the
      * slider's own (unrotated) coordinates, length along x.
      */
-    public static void drawOneUi8Slider(Canvas canvas, RectF track, float fraction, boolean dark) {
+    public static void drawOneUi8Slider(Canvas canvas, RectF track, float fraction, boolean dark) { drawOneUi8Slider(canvas, track, fraction, dark, null); }
+
+    /** As above with the fill in {@code fillColors} (PANEL_COLORS), null = One UI's light fill. */
+    public static void drawOneUi8Slider(Canvas canvas, RectF track, float fraction, boolean dark, int[] fillColors) {
         if (track == null || track.isEmpty() || !Float.isFinite(fraction)) return;
         float r = Math.min(track.width(), track.height()) / 2f;
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -278,6 +339,7 @@ public final class QsArt {
         canvas.drawRoundRect(track, r, r, p);
         float len = oneUi8FillLength(track, fraction);
         p.setColor(oneUiFill(dark));
+        if (fillColors != null) fillPaint(p, track, fillColors);
         canvas.drawRoundRect(new RectF(track.left, track.top, track.left + len, track.bottom), r, r, p);
     }
 

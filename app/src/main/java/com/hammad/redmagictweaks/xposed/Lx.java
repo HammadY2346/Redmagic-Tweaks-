@@ -46,8 +46,12 @@ public final class Lx {
     public static void e(String msg, Throwable t) { log("E", msg + (t == null ? "" : " :: " + t)); }
 
     private static void log(String level, String msg) {
+        // Logs page switch off: nothing is sent to the module's log; errors still go to LSPosed's own log
+        boolean off = Cfg.on(com.hammad.redmagictweaks.LogStore.OFF_KEY);
+        if (off && !"E".equals(level)) return;
         String line = level + " " + msg;
         try { XposedBridge.log("RMTweaks[" + tag + "] " + line); } catch (Throwable ignored) { }
+        if (off) return;
         synchronized (queue) {
             if (queue.size() > 400) queue.pollFirst();
             queue.addLast(line);

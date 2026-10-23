@@ -28,6 +28,7 @@ public final class FrameworkFeatures {
     public static final String POWER_ASSIST = "fw_power_assist";
     public static final String UNTRUSTED_TOUCH = "fw_untrusted_touch";
     public static final String QUIET_UNLOCKED = "fw_quiet_when_unlocked";
+    public static final String GOOGLE_INTL = "fw_google_intl";
 
     public static final String[] FREEFORM_SCOPE = {"Stock", "All user apps", "All apps (incl. system)"};
 
@@ -54,7 +55,8 @@ public final class FrameworkFeatures {
         new Features.Feature(AUTO_RATE_MAX, "Auto refresh rate goes up to 165 Hz", "In the Auto (smart) refresh-rate mode ZTE caps the high step at 120 Hz. With this on, Auto ramps between 60 Hz and the highest rate the panel offers (165 Hz with the DTBO mod) exactly like stock does between 60 and 120 — apps, scrolling and games get 165, idle still drops. Settings keeps working. Takes effect after a reboot or after changing the refresh-rate setting once."),
         new Features.Feature(FORCE_RATE, "Force refresh rate in every app", "Overrides ZTE's smart refresh-rate engine: every refresh-rate decision while the screen is on (per-app lists, scrolling, idle fallback, brightness, Game Space votes) is replaced by this rate, like the OnePlus Force165 tool but system-wide. Screen-off / AOD rates are left alone. Applies within a second; no reboot.", Features.Type.CHOICE, FORCE_RATES, 0),
         new Features.Feature(FORCE_RATE_VIDEO_60, "…but 60 Hz in video apps", "With the forced rate on, YouTube, Netflix, Prime Video, Disney+, VLC, MX Player and the stock video player still get 60 Hz to avoid judder."),
-        new Features.Feature(VOLUME_BOOST, "Volume boost past maximum", "When media volume is already at 100 %, every playing media / game session gets an extra loudness gain (LoudnessEnhancer). Louder than the speaker was tuned for — can clip or distort; start low. Reboot.", Features.Type.CHOICE, VOLUME_BOOST_LEVELS, 0),
+        new Features.Feature(VOLUME_BOOST, "Volume boost past maximum", "When media volume is already at 100 %, every playing media / game session gets an extra loudness gain (LoudnessEnhancer). Louder than the speaker was tuned for — can clip or distort; start low. Reboot.", Features.Type.CHOICE, VOLUME_BOOST_LEVELS, 0).num(0, 100, 5, "%"),
+        new Features.Feature(GOOGLE_INTL, "Google apps: international mode (Quick Share)", "China firmware tells apps it is a China phone (the cn.google.services feature). Google Play services then switches off what it doesn't offer in China, such as Quick Share / Nearby Share. This hides that flag from Google's own apps only; every other app still sees it. Reboot, then force-stop Google Play services (or wait a few minutes) and open Quick Share."),
         new Features.Feature(QUIET_UNLOCKED, "Silent notifications while unlocked", "No notification sound or vibration while the screen is on and unlocked; lights and the shade still work. Reboot.")
     );
 }

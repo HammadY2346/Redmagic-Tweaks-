@@ -18,6 +18,7 @@ android {
         create("public") {
             dimension = "edition"
             applicationId = "com.hammad.redmagictweaks"
+            versionName = "1.1.0"
             resValue("string", "app_name", "RedMagic Tweaks")
             resValue("string", "module_package", "com.hammad.redmagictweaks")
             buildConfigField("String", "APP_NAME", "\"RedMagic Tweaks\"")

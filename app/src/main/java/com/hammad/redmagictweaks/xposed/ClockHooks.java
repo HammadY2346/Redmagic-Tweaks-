@@ -41,7 +41,11 @@ final class ClockHooks {
     // ------------------------------------------------------------------------------------------- settings snapshot
 
     static final class S {
-        int font, size, spacing, color, date, datePos, dateSep, dateCase, offX, offY;
+        int font, color, date, datePos, dateSep, dateCase;
+        /** The clock colour as ARGB (a preset or the custom colour, ColorPick); used while color > 0. */
+        int argb;
+        /** Values, not choice indexes: size in % (100 = stock), spacing in hundredths of an em, nudges in dp (preset or typed). */
+        int size = 100, spacing, offX, offY;
         boolean bold, italic, hide, customFormat;
         int hash;
         boolean typography() { return font > 0 || bold || italic; }
@@ -57,17 +61,20 @@ final class ClockHooks {
             n.bold = Cfg.on(ClockFeatures.CLK_BOLD);
             n.italic = Cfg.on(ClockFeatures.CLK_ITALIC);
             n.color = idx(Cfg.choice(ClockFeatures.CLK_COLOR), ClockFeatures.COLOR_VALUES.length);
-            n.size = idx(Cfg.choice(ClockFeatures.CLK_SIZE), ClockFeatures.SIZE_PERCENT.length);
-            n.spacing = idx(Cfg.choice(ClockFeatures.CLK_SPACING), ClockFeatures.SPACING_HUNDREDTHS.length);
+            int[] custom = Cfg.color(ClockFeatures.CLK_COLOR);
+            if (custom != null && n.color == 0) n.color = 1;
+            n.argb = custom != null ? custom[0] : ClockFeatures.COLOR_VALUES[n.color];
+            n.size = Cfg.num(ClockFeatures.CLK_SIZE, ClockFeatures.SIZE_PERCENT[idx(Cfg.choice(ClockFeatures.CLK_SIZE), ClockFeatures.SIZE_PERCENT.length)]);
+            n.spacing = Cfg.num(ClockFeatures.CLK_SPACING, ClockFeatures.SPACING_HUNDREDTHS[idx(Cfg.choice(ClockFeatures.CLK_SPACING), ClockFeatures.SPACING_HUNDREDTHS.length)]);
             n.date = idx(Cfg.choice(ClockFeatures.CLK_DATE), ClockFeatures.DATE_PATTERNS.length);
             n.datePos = idx(Cfg.choice(ClockFeatures.CLK_DATE_POS), ClockFeatures.DATE_POSITIONS.length);
             n.dateSep = idx(Cfg.choice(ClockFeatures.CLK_DATE_SEP), ClockFeatures.DATE_SEPARATOR_TEXT.length);
             n.dateCase = idx(Cfg.choice(ClockFeatures.CLK_DATE_CASE), ClockFeatures.DATE_CASES.length);
-            n.offX = idx(Cfg.choice(ClockFeatures.CLK_OFFSET_X), ClockFeatures.OFFSETS_X_DP.length);
-            n.offY = idx(Cfg.choice(ClockFeatures.CLK_OFFSET_Y), ClockFeatures.OFFSETS_Y_DP.length);
+            n.offX = Cfg.num(ClockFeatures.CLK_OFFSET_X, ClockFeatures.OFFSETS_X_DP[idx(Cfg.choice(ClockFeatures.CLK_OFFSET_X), ClockFeatures.OFFSETS_X_DP.length)]);
+            n.offY = Cfg.num(ClockFeatures.CLK_OFFSET_Y, ClockFeatures.OFFSETS_Y_DP[idx(Cfg.choice(ClockFeatures.CLK_OFFSET_Y), ClockFeatures.OFFSETS_Y_DP.length)]);
             n.hide = Cfg.on(ClockFeatures.CLK_HIDE);
             n.customFormat = Cfg.choice(StatusBarFeatures.SB_CLOCK_FORMAT) > 0;
-            n.hash = (n.font * 31 + n.size) * 31 + n.spacing; n.hash = n.hash * 31 + n.color; n.hash = n.hash * 31 + n.date; n.hash = n.hash * 31 + n.datePos;
+            n.hash = (n.font * 31 + n.size) * 31 + n.spacing; n.hash = n.hash * 31 + n.color; n.hash = n.hash * 31 + n.argb; n.hash = n.hash * 31 + n.date; n.hash = n.hash * 31 + n.datePos;
             n.hash = n.hash * 31 + n.dateSep; n.hash = n.hash * 31 + n.dateCase; n.hash = n.hash * 31 + n.offX; n.hash = n.hash * 31 + n.offY;
             n.hash = n.hash * 31 + (n.bold ? 1 : 0) + (n.italic ? 2 : 0) + (n.hide ? 4 : 0) + (n.customFormat ? 8 : 0);
             snap = n; snapAt = now;
@@ -183,9 +190,10 @@ final class ClockHooks {
             float cur = v.getTextSize();
             if (st.appliedPx >= 0 && Math.abs(cur - st.appliedPx) > 0.01f) { st.px = cur; st.appliedPx = -1; }
             else if (st.appliedPx < 0) st.px = cur;
-            float want = s.size > 0 ? st.px * ClockFeatures.SIZE_PERCENT[s.size] / 100f : st.px;
-            if (Math.abs(cur - want) > 0.01f) { v.setTextSize(TypedValue.COMPLEX_UNIT_PX, want); st.appliedPx = s.size > 0 ? want : -1; }
-            else st.appliedPx = s.size > 0 ? want : -1;
+            boolean sized = s.size != 100 && s.size > 0;
+            float want = sized ? st.px * s.size / 100f : st.px;
+            if (Math.abs(cur - want) > 0.01f) { v.setTextSize(TypedValue.COMPLEX_UNIT_PX, want); st.appliedPx = sized ? want : -1; }
+            else st.appliedPx = sized ? want : -1;
 
             // typeface
             Typeface curFace = v.getTypeface();
@@ -208,17 +216,17 @@ final class ClockHooks {
             float curSp = v.getLetterSpacing();
             if (st.spacingApplied && Math.abs(curSp - st.appliedSpacing) > 0.00001f) { st.spacing = curSp; st.spacingApplied = false; }
             else if (!st.spacingApplied) st.spacing = curSp;
-            if (s.spacing > 0) {
-                float wantSp = st.spacing + ClockFeatures.SPACING_HUNDREDTHS[s.spacing] / 100f;
+            if (s.spacing != 0) {
+                float wantSp = st.spacing + s.spacing / 100f;
                 if (Math.abs(curSp - wantSp) > 0.00001f) v.setLetterSpacing(wantSp);
                 st.appliedSpacing = v.getLetterSpacing(); st.spacingApplied = true;
             } else if (st.spacingApplied) { v.setLetterSpacing(st.spacing); st.spacingApplied = false; }
 
             // position nudges
-            if (s.offX > 0 || s.offY > 0) {
+            if (s.offX != 0 || s.offY != 0) {
                 float density = v.getResources().getDisplayMetrics().density;
                 if (!st.offsetApplied) { st.tx = v.getTranslationX(); st.ty = v.getTranslationY(); }
-                float tx = st.tx + ClockFeatures.OFFSETS_X_DP[s.offX] * density, ty = st.ty + ClockFeatures.OFFSETS_Y_DP[s.offY] * density;
+                float tx = st.tx + s.offX * density, ty = st.ty + s.offY * density;
                 if (Math.abs(v.getTranslationX() - tx) > 0.01f) v.setTranslationX(tx);
                 if (Math.abs(v.getTranslationY() - ty) > 0.01f) v.setTranslationY(ty);
                 st.offsetApplied = true;
@@ -247,7 +255,7 @@ final class ClockHooks {
     }
 
     private static void paintColor(TextView v, Stock st, S s) {
-        int color = ClockFeatures.COLOR_VALUES[s.color];
+        int color = s.argb;
         if (v.getCurrentTextColor() != color) {
             boolean was = writing; writing = true;
             try { v.setTextColor(color); } finally { writing = was; }

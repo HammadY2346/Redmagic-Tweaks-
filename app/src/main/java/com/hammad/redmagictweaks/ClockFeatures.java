@@ -77,14 +77,14 @@ public final class ClockFeatures {
         new Features.Feature(CLK_BOLD, "Bold clock", "Draws the clock in bold on top of the chosen font."),
         new Features.Feature(CLK_ITALIC, "Italic clock", "Slants the clock text."),
         new Features.Feature(CLK_COLOR, "Clock colour", "Fixed colour for the clock instead of the automatic light / dark tint. Applies on the next clock tick.", Features.Type.CHOICE, COLOR_NAMES, 0),
-        new Features.Feature(CLK_SIZE, "Clock size", "Text size relative to stock.", Features.Type.CHOICE, SIZES, 0),
-        new Features.Feature(CLK_SPACING, "Letter spacing", "Space between the digits of the clock.", Features.Type.CHOICE, SPACINGS, 0),
+        new Features.Feature(CLK_SIZE, "Clock size", "Text size relative to stock.", Features.Type.CHOICE, SIZES, 0).num(60, 160, 1, "%"),
+        new Features.Feature(CLK_SPACING, "Letter spacing", "Space between the digits of the clock (a typed value is in hundredths of a letter width: 5 = 0.05).", Features.Type.CHOICE, SPACINGS, 0).num(-10, 20, 1, "/100 em"),
         new Features.Feature(CLK_DATE, "Date next to the clock", "Adds the date to the status bar clock. Ignored while a custom \"Status bar clock format\" is selected in Status bar & notifications.", Features.Type.CHOICE, DATE_FORMATS, 0),
         new Features.Feature(CLK_DATE_POS, "Date position", "", Features.Type.CHOICE, DATE_POSITIONS, 0),
         new Features.Feature(CLK_DATE_SEP, "Date separator", "Character between the time and the date.", Features.Type.CHOICE, DATE_SEPARATORS, 0),
         new Features.Feature(CLK_DATE_CASE, "Date letter case", "", Features.Type.CHOICE, DATE_CASES, 0),
-        new Features.Feature(CLK_OFFSET_X, "Nudge sideways", "Shifts the clock left or right.", Features.Type.CHOICE, OFFSETS_X, 0),
-        new Features.Feature(CLK_OFFSET_Y, "Nudge up / down", "Shifts the clock up or down.", Features.Type.CHOICE, OFFSETS_Y, 0),
+        new Features.Feature(CLK_OFFSET_X, "Nudge sideways", "Shifts the clock left or right.", Features.Type.CHOICE, OFFSETS_X, 0).num(-20, 20, 1, "dp"),
+        new Features.Feature(CLK_OFFSET_Y, "Nudge up / down", "Shifts the clock up or down.", Features.Type.CHOICE, OFFSETS_Y, 0).num(-10, 10, 1, "dp"),
         new Features.Feature(CLK_HIDE, "Hide the status bar clock", "Removes the clock from the top status bar (the pull-down header clock stays). Applies within a minute.")
     );
 

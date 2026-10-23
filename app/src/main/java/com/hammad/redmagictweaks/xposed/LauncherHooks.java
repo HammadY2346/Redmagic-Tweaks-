@@ -76,7 +76,7 @@ import de.robv.android.xposed.XposedHelpers;
  * Extras verified in the decompiled launcher: the drawer search bar is {@code R.id.search_container_all_apps}
  * (AllAppsMenuBarLayout, added in {@code allapps.r#S()} from onFinishInflate) with the "⋮" {@code R.id.all_apps_menu_btn}
  * inside it; the drawer RecyclerView is laid out BELOW it (RelativeLayout rule), so GONE collapses the space. All-apps
- * app labels are BubbleTextView with iconDisplay == 1 (field f11009p), text size DeviceProfile.N2 set in the constructor.
+ * app labels are BubbleTextView with iconDisplay == 1 (field p, getIconDisplay()), text size DeviceProfile.N2 (float) set in the constructor.
  * Needs a launcher restart after toggling the paged drawer (the LayoutManager is installed once when the drawer view is created).
  */
 final class LauncherHooks {
@@ -92,12 +92,13 @@ final class LauncherHooks {
     private static final String SEARCH_RV = "com.android.launcher3.allapps.SearchRecyclerView";
     private static final String GRID_ADAPTER = "com.android.launcher3.allapps.AllAppsGridAdapter";
     private static final String APPS_GLM = "com.android.launcher3.allapps.AllAppsGridAdapter$AppsGridLayoutManager";
-    private static final String MIFAVOR_CONTEXT = "com.android.launcher3.C1308v4";       // MifavorContext (obfuscated name, fw 11.0.11)
-    private static final String RESOURCE_CONTEXT = "com.android.launcher3.resource.Q";   // ResourceContext
-    private static final String CONTAINER = "com.android.launcher3.allapps.r";           // ActivityAllAppsContainerView (obfuscated, fw 11.0.11)
+    // ResourceContext / MifavorContext have different R8 names per build (China 11.0.11: resource.Q extends v4,
+    // EU 11.0.4: resource.J extends l4): found by shape at runtime, see resourceContext().
+    private static final String RESOURCE_PKG = "com.android.launcher3.resource.";
+    private static final String CONTAINER = "com.android.launcher3.allapps.r";           // ActivityAllAppsContainerView (same name on China and EU)
     private static final String BUBBLE = "com.android.launcher3.BubbleTextView";
-    private static final String BUBBLE_DISPLAY_FIELD = "f11009p";                       // BubbleTextView.mDisplay (1 = all apps)
-    private static final String DP_ALLAPPS_TEXT_FIELD = "f14416N2";                     // DeviceProfile.allAppsIconTextSizePx
+    private static final String BUBBLE_DISPLAY_FIELD = "p";                             // BubbleTextView.mDisplay (1 = all apps); also getIconDisplay()
+    private static final String DP_ALLAPPS_TEXT_FIELD = "N2";                           // DeviceProfile.allAppsIconTextSizePx (float; China h0, EU g0)
 
     private static final String[] NOTIFY_ITEM = {
             "notifyItemChanged", "notifyItemInserted", "notifyItemMoved", "notifyItemRangeChanged",
@@ -189,6 +190,7 @@ final class LauncherHooks {
 
     static void install(ClassLoader cl) {
         try { configFlags(cl); } catch (Throwable t) { Lx.e("Launcher: config-flag install crashed", t); }
+        try { LauncherIcons.install(cl); } catch (Throwable t) { Lx.e("Launcher: icon install crashed", t); }
         try { pagedDrawer(cl); } catch (Throwable t) { Lx.e("Launcher: paged-drawer install crashed", t); }
         try { drawerChrome(cl); } catch (Throwable t) { Lx.e("Launcher: drawer-chrome install crashed", t); }
         try { DrawerMenu.install(cl); } catch (Throwable t) { Lx.e("Launcher: drawer-menu install crashed", t); }
@@ -261,11 +263,14 @@ final class LauncherHooks {
                         int display = -1;
                         try { display = XposedHelpers.getIntField(tv, BUBBLE_DISPLAY_FIELD); }
                         catch (Throwable t) {
-                            if (!logged[1]) { logged[1] = true; Lx.w("Drawer: BubbleTextView." + BUBBLE_DISPLAY_FIELD + " missing (" + t + "), label size uses the DeviceProfile text size instead"); }
-                            try {
-                                Object dp = deviceProfile(tv);
-                                if (dp != null && Math.abs(tv.getTextSize() - XposedHelpers.getIntField(dp, DP_ALLAPPS_TEXT_FIELD)) < 1.5f) display = 1;
-                            } catch (Throwable ignored) { }
+                            try { display = (Integer) XposedHelpers.callMethod(tv, "getIconDisplay"); }
+                            catch (Throwable t2) {
+                                if (!logged[1]) { logged[1] = true; Lx.w("Drawer: BubbleTextView." + BUBBLE_DISPLAY_FIELD + "/getIconDisplay() missing (" + t2 + "), label size uses the DeviceProfile text size instead"); }
+                                try {
+                                    Object dp = deviceProfile(tv);
+                                    if (dp != null && Math.abs(tv.getTextSize() - XposedHelpers.getFloatField(dp, DP_ALLAPPS_TEXT_FIELD)) < 1.5f) display = 1;
+                                } catch (Throwable ignored) { }
+                            }
                         }
                         if (display != 1 || tv.getTextSize() <= 0) return;
                         float px = tv.getTextSize() * scale;
@@ -442,9 +447,12 @@ final class LauncherHooks {
             case "config_support_rotation":
             case "config_rotation_default_value":
                 return Cfg.on(Features.LAUNCHER_ROTATION) ? 1 : null;
-            case "config_num_columns": { int i = Cfg.choice(Features.LAUNCHER_COLS); return i > 0 && i < Features.GRID_COLS.length ? Integer.valueOf(Features.GRID_COLS[i]) : null; }
-            case "config_num_rows": { int i = Cfg.choice(Features.LAUNCHER_ROWS); return i > 0 && i < Features.GRID_ROWS.length ? Integer.valueOf(Features.GRID_ROWS[i]) : null; }
-            case "config_num_hotseat_icons": { int i = Cfg.choice(Features.LAUNCHER_HOTSEAT); return i > 0 && i < Features.HOTSEAT.length ? Integer.valueOf(Features.HOTSEAT[i]) : null; }
+            case "config_num_columns": { if (Cfg.hasNum(Features.LAUNCHER_COLS)) return Cfg.num(Features.LAUNCHER_COLS, 4);
+                int i = Cfg.choice(Features.LAUNCHER_COLS); return i > 0 && i < Features.GRID_COLS.length ? Integer.valueOf(Features.GRID_COLS[i]) : null; }
+            case "config_num_rows": { if (Cfg.hasNum(Features.LAUNCHER_ROWS)) return Cfg.num(Features.LAUNCHER_ROWS, 5);
+                int i = Cfg.choice(Features.LAUNCHER_ROWS); return i > 0 && i < Features.GRID_ROWS.length ? Integer.valueOf(Features.GRID_ROWS[i]) : null; }
+            case "config_num_hotseat_icons": { if (Cfg.hasNum(Features.LAUNCHER_HOTSEAT)) return Cfg.num(Features.LAUNCHER_HOTSEAT, 4);
+                int i = Cfg.choice(Features.LAUNCHER_HOTSEAT); return i > 0 && i < Features.HOTSEAT.length ? Integer.valueOf(Features.HOTSEAT[i]) : null; }
             case "config_show_hotseat_text": return Cfg.on(Features.LAUNCHER_HOTSEAT_TEXT) ? 1 : null;
             case "config_two_line_title": return Cfg.on(Features.LAUNCHER_TWO_LINE) ? 1 : null;
             case "config_circle_scroll_status":
@@ -452,8 +460,42 @@ final class LauncherHooks {
             case "config_show_circle_scroll_switch":
                 return Cfg.on(Features.LAUNCHER_CIRCLE) ? 1 : null;
             case "config_show_fast_scroller_bar": return Cfg.on(Features.LAUNCHER_NO_FASTSCROLL) ? 0 : null;
+            case "config_num_folder_columns": { int i = Cfg.choice(Features.LAUNCHER_FOLDER_COLS); return i > 0 && i < Features.FOLDER_COLS.length ? Integer.valueOf(Features.FOLDER_COLS[i]) : null; }
+            case "config_num_folder_rows": { int i = Cfg.choice(Features.LAUNCHER_FOLDER_ROWS); return i > 0 && i < Features.FOLDER_ROWS.length ? Integer.valueOf(Features.FOLDER_ROWS[i]) : null; }
+            case "config_icon_no_title": return Cfg.on(Features.LAUNCHER_HIDE_LABELS) ? 1 : null;
             default: return null;
         }
+    }
+
+    /**
+     * ResourceContext: the class in com.android.launcher3.resource with static o(String)int, j(String)float and
+     * u(String)String (China 11.0.11: resource.Q, EU 11.0.4: resource.J). Its superclass is MifavorContext (v4 / l4).
+     */
+    private static Class<?> resourceContext(ClassLoader cl) {
+        List<String> names = new ArrayList<>();
+        for (char a = 'A'; a <= 'Z'; a++) names.add(String.valueOf(a));
+        for (char a = 'a'; a <= 'z'; a++) names.add(String.valueOf(a));
+        for (char a = 'A'; a <= 'Z'; a++) for (char d = '0'; d <= '9'; d++) names.add("" + a + d);
+        for (char a = 'a'; a <= 'z'; a++) for (char d = '0'; d <= '9'; d++) names.add("" + a + d);
+        for (String n : names) {
+            Class<?> c;
+            try { c = Class.forName(RESOURCE_PKG + n, false, cl); } catch (Throwable t) { continue; }
+            if (isResourceContext(c)) return c;
+        }
+        return null;
+    }
+
+    private static boolean isResourceContext(Class<?> c) {
+        boolean o = false, j = false, u = false;
+        for (Method m : c.getDeclaredMethods()) {
+            if (!Modifier.isStatic(m.getModifiers())) continue;
+            Class<?>[] p = m.getParameterTypes();
+            if (p.length != 1 || p[0] != String.class) continue;
+            if (m.getName().equals("o") && m.getReturnType() == int.class) o = true;
+            else if (m.getName().equals("j") && m.getReturnType() == float.class) j = true;
+            else if (m.getName().equals("u") && m.getReturnType() == String.class) u = true;
+        }
+        return o && j && u;
     }
 
     private static void configFlags(ClassLoader cl) {
@@ -472,17 +514,19 @@ final class LauncherHooks {
             }
         };
         int n = 0;
-        Class<?> mc = H.cls(cl, MIFAVOR_CONTEXT);
-        if (mc != null) {
+        Class<?> rc = resourceContext(cl);
+        Class<?> mc = rc == null ? null : rc.getSuperclass();
+        if (rc == null) Lx.w("Launcher: ResourceContext (" + RESOURCE_PKG + "? with static o/j/u(String)) not found; config tweaks unavailable");
+        else Lx.i("Launcher: ResourceContext = " + rc.getName() + ", MifavorContext = " + (mc == null ? "?" : mc.getName()));
+        if (mc != null && mc != Object.class) {
             Method m = H.findBySig(mc, int.class, Context.class, String.class, int.class);   // MifavorContext.b(Context,String,int); a() delegates to it
-            if (H.hook(m, cb)) { n++; Lx.i("Launcher: hooked " + MIFAVOR_CONTEXT + "#" + m.getName() + "(Context,String,int)"); }
+            if (H.hook(m, cb)) { n++; Lx.i("Launcher: hooked " + mc.getName() + "#" + m.getName() + "(Context,String,int)"); }
         }
-        Class<?> rc = H.cls(cl, RESOURCE_CONTEXT);
         if (rc != null) {
             Method m = H.find(rc, "o", String.class);                                      // ResourceContext.o(String) -> int
             if (m != null && m.getReturnType() == int.class && Modifier.isStatic(m.getModifiers()) && H.hook(m, cb)) {
-                n++; Lx.i("Launcher: hooked " + RESOURCE_CONTEXT + "#o(String)");
-            } else Lx.w("Launcher: " + RESOURCE_CONTEXT + "#o(String) not found or wrong shape");
+                n++; Lx.i("Launcher: hooked " + rc.getName() + "#o(String)");
+            } else Lx.w("Launcher: " + rc.getName() + "#o(String) not found or wrong shape");
         }
         Lx.i("Launcher: config-flag hooks ready (" + n + "/2)");
     }
@@ -545,14 +589,15 @@ final class LauncherHooks {
                     st.pagePad = Math.round(DrawerKeys.pagePadDp() * self.getResources().getDisplayMetrics().density);
                     st.cols = Math.max(1, colsOf(lm, 5));
                     int ri = Cfg.choice(Features.LAUNCHER_PAGED_ROWS);
-                    st.autoRows = !(ri > 0 && ri < Features.PAGED_ROWS.length);
+                    boolean typedRows = Cfg.hasNum(Features.LAUNCHER_PAGED_ROWS);
+                    st.autoRows = !typedRows && !(ri > 0 && ri < Features.PAGED_ROWS.length);
                     try { st.order = DrawerOrder.get(self.getContext()); } catch (Throwable t) { Lx.e("Drawer: DrawerOrder init", t); }
                     try {
                         if (old != null && old.edit != null) { st.edit = old.edit; st.edit.rebind(st); }   // never attach a second touch listener
                         else st.edit = new DrawerEdit(st, self);
                         reserveB(st);                                                              // the bottom strip counts before Auto rows
                     } catch (Throwable t) { Lx.e("Drawer: DrawerEdit init", t); }
-                    st.rows = st.autoRows ? autoRows(st, self) : Integer.parseInt(Features.PAGED_ROWS[ri]);
+                    st.rows = st.autoRows ? autoRows(st, self) : typedRows ? Math.max(1, Cfg.num(Features.LAUNCHER_PAGED_ROWS, 5)) : Integer.parseInt(Features.PAGED_ROWS[ri]);
                     Object ours = glmCtor.newInstance(self.getContext(), st.rows, 0 /* HORIZONTAL */, false);
                     ourLms.put(ours, Boolean.TRUE);
                     st.ourLm = new WeakReference<>(ours);

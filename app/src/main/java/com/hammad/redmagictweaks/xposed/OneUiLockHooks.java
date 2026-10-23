@@ -312,6 +312,11 @@ final class OneUiLockHooks {
                     if (any != null) c = any.getCurrentTextColor() | 0xff000000;
                 }
             } catch (Throwable ignored) { }
+            // the colour chosen in Lock screen colours wins (a gradient's first colour: the face is drawn in one colour)
+            try {
+                int[] chosen = LockHooks.colors(getContext(), LockFeatures.CLOCK_COLOR);
+                if (chosen != null) c = chosen[0] | 0xff000000;
+            } catch (Throwable t) { Lx.w("OneUiLock: clock colour: " + t); }
             setColor(c);
             updateDayAndAlarm();
             place();
@@ -383,9 +388,14 @@ final class OneUiLockHooks {
     static final class FaceView extends View {
         final ClockFaces.Spec spec = new ClockFaces.Spec();
         int faceIndex;
+        /** Drawn on the always-on display (AodHooks): the AOD's own face / size choices, falling back to the lock screen's. */
+        final boolean aod;
 
-        FaceView(Context c) {
+        FaceView(Context c) { this(c, false); }
+
+        FaceView(Context c, boolean aod) {
             super(c);
+            this.aod = aod;
             spec.density = c.getResources().getDisplayMetrics().density;
             configure();
         }
@@ -393,7 +403,17 @@ final class OneUiLockHooks {
         void configure() {
             faceIndex = Math.max(0, Math.min(ClockFaces.COUNT - 1, Cfg.choice(LockFeatures.ONEUI_FACE)));
             int si = Math.max(0, Math.min(LockFeatures.ONEUI_SIZE_DP.length - 1, Cfg.choice(LockFeatures.ONEUI_SIZE)));
-            spec.size = dp(getContext(), LockFeatures.ONEUI_SIZE_DP[si]);
+            int sizeDp = Cfg.num(LockFeatures.ONEUI_SIZE, LockFeatures.ONEUI_SIZE_DP[si]);
+            if (aod) {
+                int f = Cfg.choice(com.hammad.redmagictweaks.AodFeatures.ONEUI_FACE);
+                if (f > 0) faceIndex = Math.max(0, Math.min(ClockFaces.COUNT - 1, f - 1));
+                int ai = Cfg.choice(com.hammad.redmagictweaks.AodFeatures.ONEUI_SIZE);
+                int preset = ai > 0 && ai < com.hammad.redmagictweaks.AodFeatures.ONEUI_SIZE_DP.length ? com.hammad.redmagictweaks.AodFeatures.ONEUI_SIZE_DP[ai] : 0;
+                int own = Cfg.num(com.hammad.redmagictweaks.AodFeatures.ONEUI_SIZE, preset);
+                if (own > 0) sizeDp = own;
+                spec.shadow = false;                      // pure black background: no shadow to draw
+            }
+            spec.size = dp(getContext(), sizeDp);
             spec.digits = digitFace();
             requestLayout();
             invalidate();

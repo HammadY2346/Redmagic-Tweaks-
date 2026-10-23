@@ -9,6 +9,12 @@
     <string name="clear">Clear</string>
     <string name="share">Share</string>
     <string name="copy">Copy</string>
+    <string name="log_share_txt">Share as .txt file</string>
+    <string name="log_save_txt">Save .txt to Download</string>
+    <string name="log_switch">Record logs</string>
+    <string name="log_on">On: the tweaks write what they do here</string>
+    <string name="log_off">Off: nothing is recorded (errors still go to LSPosed\'s log)</string>
+    <string name="log_off_empty">Logging is off. Turn on Record logs above, then do what you want to check.</string>
     <string name="restart_hint">Changes apply after the app is restarted (force-stop it or reboot).</string>
     <string name="enabled_of">%1$d of %2$d enabled</string>
     <string name="all">All</string>

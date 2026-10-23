@@ -41,7 +41,9 @@ public class FirstRunActivity extends BaseActivity {
         setContentView(R.layout.activity_first_run);
         ((CollapsingToolbarLayout) findViewById(R.id.collapsing)).setTitle("Welcome");
         LinearLayout c = findViewById(R.id.content);
-        c.addView(text(BuildConfig.APP_NAME + " gives your REDMAGIC a One UI 8 look and " + Catalog.total(this) + " tweaks. Three steps and you're set.",
+        final boolean oneUi = !com.hammad.redmagictweaks.FlavorBits.leftOut("preset_one_ui");   // the public build has no One UI look
+        c.addView(text(oneUi ? BuildConfig.APP_NAME + " gives your REDMAGIC a One UI 8 look and " + Catalog.total(this) + " tweaks. Three steps and you're set."
+                        : BuildConfig.APP_NAME + " adds " + Catalog.total(this) + " tweaks to your REDMAGIC. Two steps and you're set.",
                 15, R.color.text_dim, 400, 4));
 
         final String[] scope = getResources().getStringArray(R.array.xposed_scope);
@@ -72,6 +74,12 @@ public class FirstRunActivity extends BaseActivity {
         s2.addView(b2);
         c.addView(s2);
 
+        if (!oneUi) {                                    // nothing to pick: every tweak starts off (stock)
+            Ui.fonts(c);
+            MaterialButton done0 = findViewById(R.id.done);
+            done0.setOnClickListener(v -> finishSetup());
+            return;
+        }
         LinearLayout s3 = step(3, "Pick a starting look", "You can change every part of it later, or switch back any time.");
         LinearLayout looks = new LinearLayout(this);
         looks.setOrientation(LinearLayout.HORIZONTAL);

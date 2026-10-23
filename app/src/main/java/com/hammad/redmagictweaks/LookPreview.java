@@ -350,13 +350,14 @@ public final class LookPreview {
             int st = (v.on(ClockFeatures.CLK_BOLD) ? Typeface.BOLD : 0) | (v.on(ClockFeatures.CLK_ITALIC) ? Typeface.ITALIC : 0);
             if (st != 0) tf = Typeface.create(tf, st | tf.getStyle());
             int si = v.choice(ClockFeatures.CLK_SIZE);
-            float size = 14.5f * (si > 0 && si < ClockFeatures.SIZES.length ? percent(ClockFeatures.SIZES[si]) : 1f);
-            int ci = v.choice(ClockFeatures.CLK_COLOR);
-            int color = ci > 0 && ci < ClockFeatures.COLOR_VALUES.length ? ClockFeatures.COLOR_VALUES[ci] : fg;
+            float size = 14.5f * (v.on(ClockFeatures.CLK_SIZE + Features.CUSTOM) ? Math.max(30, v.choice(ClockFeatures.CLK_SIZE + Features.VALUE)) / 100f
+                    : si > 0 && si < ClockFeatures.SIZES.length ? percent(ClockFeatures.SIZES[si]) : 1f);
+            int color = ColorPick.named(v, ClockFeatures.CLK_COLOR, fg);
             float[] spacing = {0f, -0.05f, -0.02f, 0.02f, 0.05f, 0.10f, 0.15f};
             int sp = v.choice(ClockFeatures.CLK_SPACING);
             p.setTypeface(tf); p.setTextSize(size); p.setColor(color); p.setTextAlign(Paint.Align.LEFT);
-            p.setLetterSpacing(sp > 0 && sp < spacing.length ? spacing[sp] : 0f);
+            p.setLetterSpacing(v.on(ClockFeatures.CLK_SPACING + Features.CUSTOM) ? v.choice(ClockFeatures.CLK_SPACING + Features.VALUE) / 100f
+                    : sp > 0 && sp < spacing.length ? spacing[sp] : 0f);
             String s = clockText(r);
             c.drawText(s, x, base, p);
             x += p.measureText(s) + 10f;
@@ -374,7 +375,8 @@ public final class LookPreview {
             int style = v.choice(CosmeticsFeatures.COS_BATTERY_STYLE);
             float scale = 1f;
             int sc = v.choice(CosmeticsFeatures.COS_BATTERY_SCALE);
-            if (sc > 0 && sc < IconPackFeatures.SCALE_PERCENT.length) scale = IconPackFeatures.SCALE_PERCENT[sc] / 100f;
+            if (v.on(CosmeticsFeatures.COS_BATTERY_SCALE + Features.CUSTOM)) scale = Math.max(30, v.choice(CosmeticsFeatures.COS_BATTERY_SCALE + Features.VALUE)) / 100f;
+            else if (sc > 0 && sc < IconPackFeatures.SCALE_PERCENT.length) scale = IconPackFeatures.SCALE_PERCENT[sc] / 100f;
             float bw = 25f * scale, bh = 12.5f * scale;
             RectF bb = new RectF(right - bw, base - 5 - bh / 2, right, base - 5 + bh / 2);
             boolean drawn = false;
@@ -390,7 +392,8 @@ public final class LookPreview {
             right = bb.left - 7f;
         }
         int sc = v.choice(IconPackFeatures.SBI_SCALE);
-        float is = 15f * (sc > 0 && sc < IconPackFeatures.SCALE_PERCENT.length ? IconPackFeatures.SCALE_PERCENT[sc] / 100f : 1f);
+        float is = 15f * (v.on(IconPackFeatures.SBI_SCALE + Features.CUSTOM) ? Math.max(30, v.choice(IconPackFeatures.SBI_SCALE + Features.VALUE)) / 100f
+                : sc > 0 && sc < IconPackFeatures.SCALE_PERCENT.length ? IconPackFeatures.SCALE_PERCENT[sc] / 100f : 1f);
         if (!v.on(StatusBarFeatures.SB_HIDE_WIFI)) { glyph(c, r, "wifi_4", right - is / 2, base - 5, is, fg); right -= is + 4; }
         if (!v.on(StatusBarFeatures.SB_HIDE_MOBILE)) { glyph(c, r, "signal_4", right - is / 2, base - 5, is, fg); right -= is + 4; }
         if (!v.on(StatusBarFeatures.SB_HIDE_BLUETOOTH)) glyph(c, r, "bluetooth", right - is / 2, base - 5, is, fg);
@@ -428,8 +431,19 @@ public final class LookPreview {
 
     // ============================================================================================ tiles
 
-    /** {bg, icon, label, secondary} for a tile in the chosen finish; state 2 = on, 1 = off. */
+    /** {bg, icon, label, secondary, bg gradient end} for a tile in the chosen finish and on-colour; state 2 = on, 1 = off. */
     private static int[] tileColors(R r, int state, boolean wide) {
+        int[] base = baseTileColors(r, state, wide);
+        int[] out = {base[0], base[1], base[2], base[3], base[0]};
+        int[] on = state == 2 ? ColorPick.panel(r.ctx, r.v, QsFeatures.QS_TILE_COLOR, true) : null;
+        if (on != null) {
+            int fg = QsArt.onColor(on[0]);
+            out[0] = on[0]; out[4] = on[on.length - 1]; out[1] = fg;
+            if (wide) { out[2] = fg; out[3] = (fg & 0xFFFFFF) | 0xA6000000; }
+        }
+        return out;
+    }
+    private static int[] baseTileColors(R r, int state, boolean wide) {
         int style = r.v.choice(QsFeatures.QS_TILE_STYLE);
         if (style == QsArt.ONE_UI_TILE)
             return new int[]{QsArt.oneUiBackground(state, true), QsArt.oneUiIcon(state, true), QsArt.oneUiLabel(state, wide, true), QsArt.oneUiSecondaryLabel(state, true)};
@@ -441,11 +455,13 @@ public final class LookPreview {
     }
 
     /** A tile background in the chosen shape and finish. */
-    private static void tileShape(final Canvas c, R r, final RectF b, int color, boolean wide) {
+    private static void tileShape(final Canvas c, R r, final RectF b, int color, boolean wide) { tileShape(c, r, b, color, color, wide); }
+    private static void tileShape(final Canvas c, R r, final RectF b, int color, int color2, boolean wide) {
         int shapeChoice = r.v.choice(wide ? QsFeatures.QS_SHAPE_LARGE : QsFeatures.QS_SHAPE_SMALL);
         float[] radii = QsArt.shapeCorners(QsArt.shapeId(shapeChoice), Math.round(b.width()), Math.round(b.height()));
         final GradientDrawable gd = new GradientDrawable();
-        gd.setColor(color);
+        if (color2 != color) { gd.setOrientation(GradientDrawable.Orientation.LEFT_RIGHT); gd.setColors(new int[]{color, color2}); }
+        else gd.setColor(color);
         if (radii != null) { gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadii(radii); }
         else if (wide) gd.setCornerRadius(Math.min(b.height() * 0.3f, 20f));
         else gd.setShape(GradientDrawable.OVAL);
@@ -472,7 +488,7 @@ public final class LookPreview {
     private static void bigTile(Canvas c, R r, RectF b, Object[] t) {
         int state = (Integer) t[3];
         int[] col = tileColors(r, state, true);
-        tileShape(c, r, b, col[0], true);
+        tileShape(c, r, b, col[0], col[4], true);
         float iconX = b.left + Math.min(28f, b.height() * 0.45f), cy = b.centerY();
         if (r.v.choice(QsFeatures.QS_TILE_STYLE) == QsArt.ONE_UI8_TILE) {
             r.gp.setStyle(Paint.Style.FILL); r.gp.setColor(QsArt.oneUi8IconCircle(state, true));
@@ -492,10 +508,11 @@ public final class LookPreview {
         int labels = v.choice(QsFeatures.QS_LABEL_POS);
         int lines = v.choice(QsFeatures.QS_LABEL_LINES);
         int maxLines = lines > 0 && lines <= 3 ? lines : 2;
-        int gap = cc ? Math.max(0, Math.min(3, v.choice(QsFeatures.QS_CC_TILE_GAP))) : 0;
+        float gap = cc ? QsFeatures.ccGapRowDp(v.choice(QsFeatures.QS_CC_TILE_GAP), v.on(QsFeatures.QS_CC_TILE_GAP + Features.CUSTOM)
+                ? Math.max(0, v.choice(QsFeatures.QS_CC_TILE_GAP + Features.VALUE)) : -1) : 0;   // dp between rows
         float cellW = (right - left) / cols;
-        float d = Math.min(60f, cellW * 0.7f) - gap * 4f;
-        float pitch = (labels == 2 ? d + 24 : d + 26 + maxLines * 14f) + gap * 4f;
+        float d = Math.min(60f, cellW * 0.7f) - gap;
+        float pitch = (labels == 2 ? d + 24 : d + 26 + maxLines * 14f) + gap;
         float y = top;
         int k = startAt;
         for (int row = 0; row < maxRows && y + (labels == 2 ? d : d + 30) <= bottom; row++) {
@@ -505,7 +522,7 @@ public final class LookPreview {
                 int state = (Integer) t[2];
                 int[] colr = tileColors(r, state, false);
                 float cx = left + cellW * (col + 0.5f);
-                tileShape(c, r, new RectF(cx - d / 2, cy - d / 2, cx + d / 2, cy + d / 2), colr[0], false);
+                tileShape(c, r, new RectF(cx - d / 2, cy - d / 2, cx + d / 2, cy + d / 2), colr[0], colr[4], false);
                 if ("Hz".equals(t[1])) {
                     r.tp.setTypeface(Typeface.create(r.font(700), Typeface.BOLD_ITALIC)); r.tp.setTextSize(d * 0.32f); r.tp.setColor(colr[1]); r.tp.setTextAlign(Paint.Align.CENTER);
                     c.drawText("Hz", cx, cy + d * 0.11f, r.tp);
@@ -519,6 +536,9 @@ public final class LookPreview {
     }
 
     private static int cols(int choice, int stock) { return choice > 0 && choice < QsFeatures.COLS.length ? choice + 1 : stock; }
+    /** The typed value of a Features.num option when it is set, else {@code preset}. */
+    private static int num(Looks.V v, String key, int preset) { return v.on(key + Features.CUSTOM) ? v.choice(key + Features.VALUE) : preset; }
+    private static int cols(Looks.V v, String key, int stock) { return Math.max(1, Math.min(8, num(v, key, cols(v.choice(key), stock)))); }
 
     // ============================================================================================ sliders
 
@@ -535,21 +555,25 @@ public final class LookPreview {
             b = new RectF(bar.centerX() - bar.height() / 2, bar.centerY() - bar.width() / 2, bar.centerX() + bar.height() / 2, bar.centerY() + bar.width() / 2);
         } else b = new RectF(bar);
         float thick = b.height(), iconCx = b.left + thick / 2f, iconCy = b.centerY();
+        final int[] fillColors = ColorPick.panel(r.ctx, r.v, QsFeatures.QS_SLIDER_COLOR, true);
         boolean iconDark;
         if (style == QsArt.ONE_UI8_BRIGHTNESS) {
-            QsArt.drawOneUi8Slider(c, b, fraction, true);
+            QsArt.drawOneUi8Slider(c, b, fraction, true, fillColors);
             iconDark = true;
         } else if (style == QsArt.ONE_UI_BRIGHTNESS) {
             Paint p = r.gp; p.setStyle(Paint.Style.FILL);
             p.setColor(QsArt.oneUiTrack(true)); c.drawRoundRect(b, thick / 2, thick / 2, p);
             int s2 = c.save(); c.clipRect(b.left, b.top, b.left + b.width() * fraction, b.bottom);
-            p.setColor(QsArt.oneUiFill(true)); c.drawRoundRect(b, thick / 2, thick / 2, p); c.restoreToCount(s2);
+            if (fillColors != null) QsArt.fillPaint(p, b, fillColors); else p.setColor(QsArt.oneUiFill(true));
+            c.drawRoundRect(b, thick / 2, thick / 2, p); p.setShader(null); c.restoreToCount(s2);
             iconDark = b.width() * fraction > thick;
         } else {
             final float rad = Math.min(thick / 2f, 18f);
             final GradientDrawable track = new GradientDrawable(), fill = new GradientDrawable();
             track.setColor(0x3DFFFFFF); track.setCornerRadius(rad);
-            fill.setColor(0xFFF4F4F6); fill.setCornerRadius(rad);
+            if (fillColors != null && fillColors.length > 1) { fill.setOrientation(GradientDrawable.Orientation.LEFT_RIGHT); fill.setColors(fillColors); }
+            else fill.setColor(fillColors != null ? fillColors[0] : 0xFFF4F4F6);
+            fill.setCornerRadius(rad);
             track.setBounds(Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom));
             fill.setBounds(track.getBounds());
             boolean done = false;
@@ -557,12 +581,12 @@ public final class LookPreview {
             if (!done) track.draw(c);
             int s2 = c.save(); c.clipRect(b.left, b.top, b.left + b.width() * fraction, b.bottom);
             done = false;
-            if (style >= 1 && style <= 3) { try { done = QsArt.drawBrightness(style, c, fill, 1f, true, true, () -> fill.draw(c)); } catch (Throwable ignored) { } }
+            if (style >= 1 && style <= 3) { try { done = QsArt.drawBrightness(style, c, fill, 1f, true, true, fillColors, () -> fill.draw(c)); } catch (Throwable ignored) { } }
             if (!done) fill.draw(c);
             c.restoreToCount(s2);
             iconDark = b.width() * fraction > thick;
         }
-        int ic = iconDark ? QsArt.oneUiIconOverFill(true) : 0xFFE6E6EA;
+        int ic = iconDark ? (fillColors != null ? QsArt.onColor(fillColors[0]) : QsArt.oneUiIconOverFill(true)) : 0xFFE6E6EA;
         float isz = Math.min(24f, thick * 0.46f);
         if (!volume && !(r.v.on(QsFeatures.QS_BRIGHTNESS_NO_SUN) && !vertical && style != QsArt.ONE_UI8_BRIGHTNESS && style != QsArt.ONE_UI_BRIGHTNESS)) {
             sun(c, iconCx, iconCy, isz, ic);
@@ -617,6 +641,16 @@ public final class LookPreview {
 
     // ============================================================================================ lock screen
 
+    /** A centred lock screen line in white, or in the chosen {top, bottom} colours (a gradient over the text height). */
+    private static void lockLine(Canvas c, R r, String s, float y, float size, int weight, int[] col) {
+        if (col == null) { text(c, r, s, SW / 2, y, size, weight, 0xFFFFFFFF, Paint.Align.CENTER); return; }
+        Paint t = new Paint(Paint.ANTI_ALIAS_FLAG);
+        t.setTypeface(r.font(weight)); t.setTextSize(size); t.setTextAlign(Paint.Align.CENTER);
+        t.setColor(col[0]);
+        if (col[0] != col[1]) t.setShader(new LinearGradient(0, y - size * 0.8f, 0, y, col[0], col[1], Shader.TileMode.CLAMP));
+        c.drawText(s, SW / 2, y, t);
+    }
+
     private static void paintLock(Canvas c, R r) {
         Looks.V v = r.v;
         background(c, r, 0x33000000);
@@ -645,6 +679,8 @@ public final class LookPreview {
             s.h24 = r.h24;
             s.size = LockFeatures.ONEUI_SIZE_DP[sizeIdx];
             s.time = sampleTime();
+            int[] oc = ColorPick.clock(r.ctx, v, LockFeatures.CLOCK_COLOR);
+            if (oc != null) s.color = oc[0] | 0xFF000000;
             float top = pos == 1 ? 72 : pos == 2 ? 150 : pos == 3 ? 130 : 100;
             float fh = ClockFaces.height(face, s, SW);
             int save = c.save();
@@ -670,8 +706,8 @@ public final class LookPreview {
                 y += tw;
             }
         } else {
-            text(c, r, r.h24 ? "09:18" : "9:18", SW / 2, 190, 64, 200, 0xFFFFFFFF, Paint.Align.CENTER);
-            text(c, r, "Wed, October 21", SW / 2, 222, 15, 500, 0xFFFFFFFF, Paint.Align.CENTER);
+            lockLine(c, r, r.h24 ? "09:18" : "9:18", 190, 64, 200, ColorPick.clock(r.ctx, v, LockFeatures.CLOCK_COLOR));
+            lockLine(c, r, "Wed, October 21", 222, 15, 500, ColorPick.clock(r.ctx, v, LockFeatures.DATE_COLOR));
             y = 236;
         }
         // first notification just below the clock (what the stack padding hooks do)
@@ -706,8 +742,10 @@ public final class LookPreview {
     private static void notificationCard(Canvas c, R r, RectF card, int i, boolean compact) {
         Looks.V v = r.v;
         int style = v.choice(SurfaceFeatures.NOTIF_STYLE);
-        int corner = SurfaceArt.cornerDp(v.choice(SurfaceFeatures.NOTIF_CORNERS));
-        int opacity = SurfaceArt.opacity(v.choice(SurfaceFeatures.NOTIF_OPACITY));
+        int corner = num(v, SurfaceFeatures.NOTIF_CORNERS, SurfaceArt.cornerDp(v.choice(SurfaceFeatures.NOTIF_CORNERS)));
+        int opacity = num(v, SurfaceFeatures.NOTIF_OPACITY, SurfaceArt.opacity(v.choice(SurfaceFeatures.NOTIF_OPACITY)));
+        if (opacity >= 100) opacity = 0;
+        int[] tint = ColorPick.panel(r.ctx, v, SurfaceFeatures.NOTIF_TINT, true);
         float rad = corner > 0 ? corner : 20f;
         float[] radii = new float[8]; Arrays.fill(radii, rad);
         int layer = c.saveLayerAlpha(card, opacity == 0 ? 255 : opacity * 255 / 100);
@@ -715,6 +753,12 @@ public final class LookPreview {
         p.setColor(0xD92B2C31);
         c.drawRoundRect(card, rad, rad, p);
         if (style > 0) { try { SurfaceArt.drawCard(style, c, card, radii, 1f, true); } catch (Throwable ignored) { } }
+        if (tint != null) {
+            Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG);
+            QsArt.fillPaint(tp, card, tint); tp.setAlpha(SurfaceFeatures.NOTIF_TINT_ALPHA);
+            tp.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_ATOP));
+            c.drawRect(card, tp);
+        }
         c.restoreToCount(layer);
         String[] n = NOTES[i % NOTES.length];
         p.setColor(NOTE_COLORS[i % NOTE_COLORS.length]);
@@ -746,9 +790,11 @@ public final class LookPreview {
         } else {
             y = classicQs(c, r, 50) + 14;
         }
+        float side = Math.max(0, 12 + num(v, SurfaceFeatures.NOTIF_SIDE, SurfaceFeatures.pick(SurfaceFeatures.NOTIF_SIDE_DP, v.choice(SurfaceFeatures.NOTIF_SIDE))));
+        float gap = Math.max(0, 8 + num(v, SurfaceFeatures.NOTIF_GAP, SurfaceFeatures.pick(SurfaceFeatures.NOTIF_GAP_DP, v.choice(SurfaceFeatures.NOTIF_GAP))));
         for (int i = 0; i < 4 && y + 104 <= SH - 30; i++) {
-            notificationCard(c, r, new RectF(12, y, SW - 12, y + 100), i, false);
-            y += 108;
+            notificationCard(c, r, new RectF(side, y, SW - side, y + 100), i, false);
+            y += 100 + gap;
         }
     }
 
@@ -756,9 +802,9 @@ public final class LookPreview {
     private static float classicQs(Canvas c, R r, float top) {
         Looks.V v = r.v;
         int topLayout = v.choice(QsFeatures.QS_TOP_LAYOUT), bPos = v.choice(QsFeatures.QS_BRIGHTNESS_POS);
-        int cols = cols(v.choice(QsFeatures.QS_COLS), 4);
+        int cols = cols(v, QsFeatures.QS_COLS, 4);
         int rowsChoice = v.choice(QsFeatures.QS_ROWS);
-        int rows = rowsChoice > 0 && rowsChoice < QsFeatures.ROWS.length ? rowsChoice : 2;
+        int rows = Math.max(1, Math.min(6, num(v, QsFeatures.QS_ROWS, rowsChoice > 0 && rowsChoice < QsFeatures.ROWS.length ? rowsChoice : 2)));
         float L = 16, Rr = SW - 16;
         float y = top;
         for (int k = 0; k < 3; k++) {
@@ -799,9 +845,9 @@ public final class LookPreview {
         if (!v.on(QsFeatures.QS_CC_HIDE_SEARCH)) search(c, hx, 126, 24, 0xFFFFFFFF);
 
         int pos = v.choice(QsFeatures.QS_CC_SLIDER_POS);
-        float barH = QsFeatures.sliderSizeDp(v.choice(QsFeatures.QS_CC_SLIDER_SIZE));
+        float barH = Math.max(24, Math.min(120, num(v, QsFeatures.QS_CC_SLIDER_SIZE, QsFeatures.sliderSizeDp(v.choice(QsFeatures.QS_CC_SLIDER_SIZE)))));
         float L = 30, Rr = SW - 30, colGap = 22, colW = (Rr - L - colGap) / 2, rowH = 62, rowGap = 18;
-        int cols = cols(v.choice(QsFeatures.QS_CC_COLS), 4);
+        int cols = cols(v, QsFeatures.QS_CC_COLS, 4);
         float y = 168;
         if (pos == 0 || pos == 1) {
             boolean mirror = pos == 1;
@@ -867,7 +913,7 @@ public final class LookPreview {
         y += pillH + gap;
         int card = QsArt.oneUi8Card(true), soft = QsArt.oneUi8Soft(true);
         Paint p = r.gp; p.setStyle(Paint.Style.FILL);
-        int cols = cols(v.choice(QsFeatures.QS_CC_COLS), 4);
+        int cols = cols(v, QsFeatures.QS_CC_COLS, 4);
         float cardTop = y;
         float cardH = v.choice(QsFeatures.QS_LABEL_POS) == 2 ? 196 : 270;
         p.setColor(card); c.drawRoundRect(new RectF(L, cardTop, Rr, cardTop + cardH), 28, 28, p);
@@ -922,6 +968,16 @@ public final class LookPreview {
         homeIcons(c, r);
         boolean oneUi = v.on(SurfaceFeatures.VOL_ONEUI);
         com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look = oneUi(r);
+        // side, distance from the edge and up / down: the whole pop-up moves (drawn for the right edge, then shifted)
+        int save = c.save();
+        float stockCx = SW - 20 - 28;
+        float wantCx = look.left ? 20 + 28 + look.marginDp : SW - 20 - 28 - look.marginDp;
+        float dy = Math.max(-200, Math.min(300, look.posDp));
+        c.translate(Math.max(48 - stockCx, Math.min(0, wantCx - stockCx)), dy);
+        try { paintVolumePanel(c, r, v, oneUi, look); } finally { c.restoreToCount(save); }
+    }
+
+    private static void paintVolumePanel(Canvas c, R r, Looks.V v, boolean oneUi, com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look) {
         if (oneUi || com.hammad.redmagictweaks.xposed.OneUiVolumeArt.stockDraw(look)) {
             // the dialog is centred on the right edge; it grows equally up and down
             float col = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.columnDp(look), extra = com.hammad.redmagictweaks.xposed.OneUiVolumeArt.extraDp(look);
@@ -972,8 +1028,9 @@ public final class LookPreview {
         float[] scales = {1f, 0.8f, 0.9f, 1.1f, 1.2f, 1.3f};
         int sizeChoice = v.choice(AodFeatures.CLOCK_SIZE);
         float sc = sizeChoice > 0 && sizeChoice < scales.length ? scales[sizeChoice] : 1f;
-        int[] col = AodFeatures.clockColors(r.ctx, v.choice(AodFeatures.CLOCK_COLOR));
+        int[] col = ColorPick.clock(r.ctx, v, AodFeatures.CLOCK_COLOR);
         float cx = SW / 2f, cy = 300;
+        if (v.on(AodFeatures.ONEUI_CLOCK)) { paintAodOneUi(c, r, col); return; }
         int save = c.save();
         c.scale(sc, sc, cx, cy);
         Paint t = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1013,6 +1070,49 @@ public final class LookPreview {
         }
     }
 
+    /** The One UI clock on the AOD (AodFeatures.ONEUI_CLOCK): face, date, battery line and notification icons. */
+    private static void paintAodOneUi(Canvas c, R r, int[] col) {
+        Looks.V v = r.v;
+        int face = Math.max(0, Math.min(ClockFaces.COUNT - 1, v.choice(LockFeatures.ONEUI_FACE)));
+        int af = v.choice(AodFeatures.ONEUI_FACE);
+        if (af > 0) face = Math.max(0, Math.min(ClockFaces.COUNT - 1, af - 1));
+        int li = Math.max(0, Math.min(LockFeatures.ONEUI_SIZE_DP.length - 1, v.choice(LockFeatures.ONEUI_SIZE)));
+        int size = LockFeatures.ONEUI_SIZE_DP[li];
+        if (v.on(LockFeatures.ONEUI_SIZE + Features.CUSTOM)) size = v.choice(LockFeatures.ONEUI_SIZE + Features.VALUE);
+        int ai = v.choice(AodFeatures.ONEUI_SIZE);
+        if (ai > 0 && ai < AodFeatures.ONEUI_SIZE_DP.length) size = AodFeatures.ONEUI_SIZE_DP[ai];
+        if (v.on(AodFeatures.ONEUI_SIZE + Features.CUSTOM)) size = v.choice(AodFeatures.ONEUI_SIZE + Features.VALUE);
+        size = Math.max(40, Math.min(200, size));
+        ClockFaces.Spec s = new ClockFaces.Spec();
+        s.density = 1f;
+        s.digits = ClockFaces.previewDigits(r.ctx);
+        s.h24 = r.h24;
+        s.size = size;
+        s.shadow = false;
+        s.time = sampleTime();
+        s.color = col != null ? col[0] | 0xFF000000 : 0xFFFFFFFF;
+        float top = 190;
+        float fh = ClockFaces.height(face, s, SW);
+        int save = c.save();
+        c.translate(0, top);
+        ClockFaces.draw(c, face, s, SW);
+        c.restoreToCount(save);
+        float cx = SW / 2f, y = top + fh + 26;
+        int sub = (s.color & 0x00ffffff) | 0xCC000000;
+        text(c, r, "Wed, Oct 21", cx, y, 16, 500, sub, Paint.Align.CENTER);
+        if (v.choice(AodFeatures.BATTERY) == 1) { y += 24; text(c, r, "⚡ 72%", cx, y, 14, 500, sub, Paint.Align.CENTER); }
+        if (v.choice(AodFeatures.NOTIFICATIONS) != 2) {
+            y += 34;
+            Paint ip = new Paint(Paint.ANTI_ALIAS_FLAG);
+            int n = 4; float isz = 22, gap = 10, x = cx - (n * isz + (n - 1) * gap) / 2f;
+            for (int i = 0; i < n; i++) {
+                float ix = x + i * (isz + gap) + isz / 2f;
+                ip.setColor(0x33FFFFFF); c.drawCircle(ix, y, isz / 2f, ip);
+                ip.setColor(0xE6FFFFFF); c.drawCircle(ix, y, isz * 0.18f, ip);
+            }
+        }
+    }
+
     /** A few app icons and a dock so the volume / power screens read as "over the home screen". */
     private static void homeIcons(Canvas c, R r) {
         Paint p = r.gp; p.setStyle(Paint.Style.FILL);
@@ -1031,7 +1131,13 @@ public final class LookPreview {
     static com.hammad.redmagictweaks.xposed.RecentsArt.Look recentsLook(Looks.V v) {
         return com.hammad.redmagictweaks.xposed.RecentsArt.resolve(v.choice(com.hammad.redmagictweaks.xposed.RecentsArt.KEY_STYLE),
                 v.choice(com.hammad.redmagictweaks.xposed.RecentsArt.KEY_HEADER), v.choice(com.hammad.redmagictweaks.xposed.RecentsArt.KEY_CLEAR),
-                v.choice(com.hammad.redmagictweaks.xposed.RecentsArt.KEY_CORNERS), v.choice(com.hammad.redmagictweaks.xposed.RecentsArt.KEY_SIZE));
+                v.choice(com.hammad.redmagictweaks.xposed.RecentsArt.KEY_CORNERS), v.choice(com.hammad.redmagictweaks.xposed.RecentsArt.KEY_SIZE),
+                typed(v, com.hammad.redmagictweaks.xposed.RecentsArt.KEY_CORNERS), typed(v, com.hammad.redmagictweaks.xposed.RecentsArt.KEY_SIZE));
+    }
+
+    /** A setting's typed value (Features.Num) in the previewed settings, or -1. */
+    static int typed(Looks.V v, String key) {
+        return v.on(key + Features.CUSTOM) ? v.choice(key + Features.VALUE) : -1;
     }
 
     private static void paintRecents(Canvas c, R r) {
@@ -1062,20 +1168,43 @@ public final class LookPreview {
         homeIcons(c, r);
         Paint p = r.gp; p.setStyle(Paint.Style.FILL);
         p.setColor(0x26FFFFFF); c.drawRect(0, 0, SW, SH, p);   // the blur, roughly
-        p.setColor(0xB3000000); c.drawRect(0, 0, SW, SH, p);
+        int dim = num(v, SurfaceFeatures.PWR_DIM, SurfaceFeatures.pick(SurfaceFeatures.PWR_DIM_PCT, v.choice(SurfaceFeatures.PWR_DIM)));
+        p.setColor(dim < 0 ? 0xB3000000 : (Math.min(100, dim) * 255 / 100) << 24); c.drawRect(0, 0, SW, SH, p);
         boolean oneUi = v.on(SurfaceFeatures.PWR_ONEUI);
         com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look = oneUi(r);
         int finish = v.choice(SurfaceFeatures.PWR_STYLE);
-        powerButtons(c, r, r.ctx, oneUi ? look : null, finish, SH / 2f + 4, new float[]{34 + 46, SW / 2, SW - 34 - 46});
+        float shift = num(v, SurfaceFeatures.PWR_POSITION, SurfaceFeatures.pick(SurfaceFeatures.PWR_POSITION_DP, v.choice(SurfaceFeatures.PWR_POSITION)));
+        int layout = v.choice(SurfaceFeatures.PWR_LAYOUT);
+        int colsWanted = layout > 0 && layout < SurfaceFeatures.PWR_LAYOUT_COLS.length ? SurfaceFeatures.PWR_LAYOUT_COLS[layout] : 0;
+        float[] xs = {34 + 46, SW / 2, SW - 34 - 46}, ys = new float[3];
+        if (colsWanted == 0) Arrays.fill(ys, SH / 2f + 4 + shift);
+        else {   // same placement as SurfaceHooks.arrangePower: rows centred, 28 dp apart, 24 dp between rows
+            float size = oneUi ? com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrSizeDp(look) : 60;
+            float iw = Math.max(size, 84), ih = size + 34, gx = 28, gy = 24;
+            int n = 3, cols = colsWanted < 0 ? n : Math.min(colsWanted, n), rows = (n + cols - 1) / cols;
+            float top = SH / 2f + 4 + shift - ((rows - 1) * (ih + gy)) / 2f;
+            for (int k = 0; k < n; k++) {
+                int row = k / cols, col = k % cols, inRow = Math.min(cols, n - row * cols);
+                float rowW = inRow * iw + (inRow - 1) * gx;
+                if (rowW > SW && inRow > 1) { float g2 = Math.max(0, (SW - inRow * iw) / (inRow - 1)); rowW = inRow * iw + (inRow - 1) * g2; xs[k] = (SW - rowW) / 2 + col * (iw + g2) + iw / 2; }
+                else xs[k] = (SW - rowW) / 2 + col * (iw + gx) + iw / 2;
+                ys[k] = top + row * (ih + gy);
+            }
+        }
+        powerButtons(c, r, r.ctx, oneUi ? look : null, finish, ys, xs);
     }
 
     /** The three power-menu buttons with their names; {@code look} null = RedMagic's own. */
     private static void powerButtons(Canvas c, R r, Context ctx, com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look, int finish, float cy, float[] xs) {
+        float[] ys = new float[xs.length]; Arrays.fill(ys, cy);
+        powerButtons(c, r, ctx, look, finish, ys, xs);
+    }
+    private static void powerButtons(Canvas c, R r, Context ctx, com.hammad.redmagictweaks.xposed.OneUiVolumeArt.Look look, int finish, float[] ys, float[] xs) {
         boolean oneUi = look != null;
         float size = oneUi ? com.hammad.redmagictweaks.xposed.OneUiVolumeArt.pwrSizeDp(look) : 60;
         String[] names = {"Power off", "Restart", "Lockdown"}, ids = {"power", "reset", "lockdown"};
         for (int i = 0; i < 3; i++) {
-            float x = xs[i];
+            float x = xs[i], cy = ys[i];
             RectF b = new RectF(x - size / 2, cy - size / 2, x + size / 2, cy + size / 2);
             int gc;
             if (oneUi) {

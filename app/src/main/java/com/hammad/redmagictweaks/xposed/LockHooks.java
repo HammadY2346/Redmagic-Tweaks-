@@ -429,7 +429,7 @@ final class LockHooks {
             rot = pick(clock ? LockFeatures.CLOCK_ROT : LockFeatures.DATE_ROT, LockFeatures.ROTATION_DEG);
         }
         boolean any() { return hide || scale != 100 || opacity != 100 || dx != 0 || dy != 0 || rot != 0; }
-        private static int pick(String key, int[] values) { int i = Cfg.choice(key); return i > 0 && i < values.length ? values[i] : values[0]; }
+        private static int pick(String key, int[] values) { int i = Cfg.choice(key); return Cfg.num(key, i > 0 && i < values.length ? values[i] : values[0]); }
     }
 
     private static boolean near(float a, float b) { return Math.abs(a - b) < 0.001f; }
@@ -516,6 +516,99 @@ final class LockHooks {
             for (Picked k : pickViews(style, CLOCK_FIELDS)) paint(k.view, clock, !NO_ROTATION.contains(k.name));
             for (Picked k : pickViews(style, DATE_FIELDS)) paint(k.view, date, true);
         } catch (Throwable t) { Lx.e("Lock: clock/date apply", t); }
+        try {
+            Context ctx = ((View) style).getContext();
+            int[] cc = colors(ctx, LockFeatures.CLOCK_COLOR), dc = colors(ctx, LockFeatures.DATE_COLOR);
+            View dial = fieldView(style, "mBackground");     // an analog dial's face keeps its own colours
+            // clock first, then the date: a date inside a clock container ends up in the date colour
+            for (Picked k : pickViews(style, CLOCK_FIELDS)) if (!"mBackground".equals(k.name)) tint(k.view, cc, dial);
+            for (Picked k : pickViews(style, DATE_FIELDS)) tint(k.view, dc, null);
+        } catch (Throwable t) { Lx.e("Lock: clock/date colour", t); }
+    }
+
+    // ---- lock clock / date colour (LockFeatures.CLOCK_COLOR / DATE_COLOR, AodFeatures.CLOCK_COLORS) ----
+
+    /** {top, bottom} for the choice, or null for the style's own colour. */
+    static int[] colors(Context ctx, String key) {
+        int[] custom = Cfg.colorPair(key);           // a custom colour (ColorPick) wins over the preset
+        if (custom != null) return custom;
+        int choice = Cfg.choice(key);
+        return choice <= 0 ? null : com.hammad.redmagictweaks.AodFeatures.clockColors(ctx, choice);
+    }
+
+    /** What a view looked like before it was tinted, and what was put on it (to notice when the stock code recolours it). */
+    private static final class Tinted {
+        ColorStateList text; android.graphics.Shader shader; int applied;
+        android.graphics.ColorFilter filter; android.graphics.ColorFilter appliedFilter;
+        int[] colors; View.OnLayoutChangeListener relayout;
+    }
+    private static final Map<View, Tinted> tinted = new WeakHashMap<>();
+
+    /** Colours every text and image inside {@code v} (a gradient runs top to bottom over each text); null puts the stock look back. */
+    static void tint(View v, int[] c, View skip) {
+        if (v == null || v == skip) return;
+        if (v instanceof TextView) tintText((TextView) v, c);
+        else if (v instanceof android.widget.ImageView) tintImage((android.widget.ImageView) v, c);
+        else if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) tint(g.getChildAt(i), c, skip);
+        }
+    }
+
+    private static void tintText(final TextView tv, int[] c) {
+        Tinted s = tinted.get(tv);
+        if (c == null) {
+            if (s == null) return;
+            tinted.remove(tv);
+            if (s.relayout != null) tv.removeOnLayoutChangeListener(s.relayout);
+            tv.getPaint().setShader(s.shader);
+            if (s.text != null) tv.setTextColor(s.text);
+            tv.invalidate();
+            return;
+        }
+        if (s == null) {
+            s = new Tinted();
+            s.text = tv.getTextColors(); s.shader = tv.getPaint().getShader();
+            tinted.put(tv, s);
+        } else if (tv.getCurrentTextColor() != s.applied) {
+            s.text = tv.getTextColors();                   // the stock code recoloured it (wallpaper / dark text): that is the new stock
+        }
+        s.colors = c;
+        s.applied = c[0];
+        if (tv.getCurrentTextColor() != c[0]) tv.setTextColor(c[0]);
+        if (c[0] == c[1]) {
+            if (tv.getPaint().getShader() != s.shader) { tv.getPaint().setShader(s.shader); tv.invalidate(); }
+            return;
+        }
+        gradient(tv, s);
+        if (s.relayout == null) {
+            final Tinted st = s;
+            s.relayout = (x, l, t, r, b, ol, ot, or, ob) -> { if ((b - t) != (ob - ot) && tinted.get(tv) == st && st.colors != null && st.colors[0] != st.colors[1]) gradient(tv, st); };
+            tv.addOnLayoutChangeListener(s.relayout);
+        }
+    }
+
+    private static void gradient(TextView tv, Tinted s) {
+        float h = tv.getHeight() > 0 ? tv.getHeight() : tv.getLineHeight();
+        tv.getPaint().setShader(new android.graphics.LinearGradient(0, 0, 0, Math.max(1f, h), s.colors[0], s.colors[1], android.graphics.Shader.TileMode.CLAMP));
+        tv.invalidate();
+    }
+
+    private static void tintImage(android.widget.ImageView iv, int[] c) {
+        Tinted s = tinted.get(iv);
+        if (c == null) {
+            if (s == null) return;
+            tinted.remove(iv);
+            iv.setColorFilter(s.filter);
+            return;
+        }
+        if (s == null) { s = new Tinted(); s.filter = iv.getColorFilter(); tinted.put(iv, s); }
+        else if (iv.getColorFilter() != s.appliedFilter) s.filter = iv.getColorFilter();
+        if (s.appliedFilter == null || s.applied != c[0] || iv.getColorFilter() != s.appliedFilter) {
+            s.applied = c[0];
+            s.appliedFilter = new android.graphics.PorterDuffColorFilter(c[0], android.graphics.PorterDuff.Mode.SRC_IN);
+            iv.setColorFilter(s.appliedFilter);
+        }
     }
 
     private static void applyLater(final Object style) {
@@ -550,6 +643,8 @@ final class LockHooks {
             H.hookAll(base, "onAttachedToWindow", after);
             H.hookAll(base, "setScene", after);
             H.hookAll(base, "updateStyleData", after);
+            // a style that recolours itself (wallpaper / dark text) gets the chosen colour back right after
+            if (!H.findAll(base, "updateColor").isEmpty()) H.hookAll(base, "updateColor", after);
         }
         // poster lock screen: cn.nubia.lockscreen.NubiaKeyguardStatusView — "public TextClock mClockView" (:39), "public NubiaTextClock mDateView" (:42),
         // "public boolean mPulsing" (:53), "public float mDarkAmount" (:40); public void onFinishInflate() (:239), refreshTime() (:264), setPulsing(boolean) (:328)
@@ -562,6 +657,9 @@ final class LockHooks {
                         if (Boolean.TRUE.equals(XposedHelpers.getObjectField(o, "mPulsing")) || XposedHelpers.getFloatField(o, "mDarkAmount") != 0f) return;
                         paint(fieldView(o, "mClockView"), new Look(true), true);
                         paint(fieldView(o, "mDateView"), new Look(false), true);
+                        Context ctx = ((View) o).getContext();
+                        tint(fieldView(o, "mClockView"), colors(ctx, LockFeatures.CLOCK_COLOR), null);
+                        tint(fieldView(o, "mDateView"), colors(ctx, LockFeatures.DATE_COLOR), null);
                     } catch (Throwable t) { Lx.e("Lock: poster clock", t); }
                 }
             };

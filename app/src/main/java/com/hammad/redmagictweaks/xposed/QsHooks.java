@@ -72,6 +72,9 @@ final class QsHooks {
         // Control Center
         boolean ccEnable; int ccCols, ccVolumeStyle, ccHide;   // ccHide: bit mask, see CC_HIDE_KEYS order
         int ccGap;                                            // QsFeatures.CC_TILE_GAPS index
+        int ccGapDp = -1;                                     // typed gap in dp, -1 = the preset
+        int tileColor, sliderColor;                           // QsArt.PANEL_COLORS indexes (0 = stock)
+        int[] tileCustom, sliderCustom;                       // custom colours {start, end} (ColorPick), or null
     }
     static final String[] CC_HIDE_KEYS = {QsFeatures.QS_CC_HIDE_SEARCH, QsFeatures.QS_CC_HIDE_EDIT, QsFeatures.QS_CC_HIDE_USER, QsFeatures.QS_CC_HIDE_POWER, QsFeatures.QS_CC_HIDE_SETTINGS, QsFeatures.QS_CC_HIDE_DATE};
     private static volatile S snap = new S();
@@ -81,10 +84,10 @@ final class QsHooks {
         long now = System.currentTimeMillis();
         if (now - snapAt > 1000) {
             S n = new S();
-            n.cols = QsFeatures.cols(Cfg.choice(QsFeatures.QS_COLS));
-            n.rows = QsFeatures.rows(Cfg.choice(QsFeatures.QS_ROWS));
-            n.landCols = QsFeatures.cols(Cfg.choice(QsFeatures.QS_LAND_COLS));
-            n.landRows = QsFeatures.rows(Cfg.choice(QsFeatures.QS_LAND_ROWS));
+            n.cols = Cfg.num(QsFeatures.QS_COLS, QsFeatures.cols(Cfg.choice(QsFeatures.QS_COLS)));
+            n.rows = Cfg.num(QsFeatures.QS_ROWS, QsFeatures.rows(Cfg.choice(QsFeatures.QS_ROWS)));
+            n.landCols = Cfg.num(QsFeatures.QS_LAND_COLS, QsFeatures.cols(Cfg.choice(QsFeatures.QS_LAND_COLS)));
+            n.landRows = Cfg.num(QsFeatures.QS_LAND_ROWS, QsFeatures.rows(Cfg.choice(QsFeatures.QS_LAND_ROWS)));
             n.top = clamp(Cfg.choice(QsFeatures.QS_TOP_LAYOUT), 3);
             n.labelPos = clamp(Cfg.choice(QsFeatures.QS_LABEL_POS), 2);
             n.labelLines = clamp(Cfg.choice(QsFeatures.QS_LABEL_LINES), 3);
@@ -95,16 +98,23 @@ final class QsHooks {
             n.tileStyle = clamp(Cfg.choice(QsFeatures.QS_TILE_STYLE), QsArt.TILE_STYLES.length - 1);
             n.brightnessStyle = clamp(Cfg.choice(QsFeatures.QS_BRIGHTNESS_STYLE), QsArt.BRIGHTNESS_STYLES.length - 1);
             n.ccEnable = Cfg.on(QsFeatures.QS_CC_ENABLE);
-            n.ccCols = QsFeatures.cols(Cfg.choice(QsFeatures.QS_CC_COLS));
+            n.ccCols = Cfg.num(QsFeatures.QS_CC_COLS, QsFeatures.cols(Cfg.choice(QsFeatures.QS_CC_COLS)));
             n.ccVolumeStyle = clamp(Cfg.choice(QsFeatures.QS_CC_VOLUME_STYLE), QsArt.BRIGHTNESS_STYLES.length - 1);
             n.ccGap = QsFeatures.ccGap(Cfg.choice(QsFeatures.QS_CC_TILE_GAP));
+            n.ccGapDp = Cfg.hasNum(QsFeatures.QS_CC_TILE_GAP) ? Math.max(0, Math.min(40, Cfg.num(QsFeatures.QS_CC_TILE_GAP, 0))) : -1;
+            n.tileColor = clamp(Cfg.choice(QsFeatures.QS_TILE_COLOR), QsArt.PANEL_COLORS.length - 1);
+            n.sliderColor = clamp(Cfg.choice(QsFeatures.QS_SLIDER_COLOR), QsArt.PANEL_COLORS.length - 1);
+            n.tileCustom = Cfg.colorPair(QsFeatures.QS_TILE_COLOR);
+            n.sliderCustom = Cfg.colorPair(QsFeatures.QS_SLIDER_COLOR);
+            if (n.tileCustom != null && n.tileColor <= 0) n.tileColor = 2;
+            if (n.sliderCustom != null && n.sliderColor <= 0) n.sliderColor = 2;
             for (int i = 0; i < CC_HIDE_KEYS.length; i++) if (Cfg.on(CC_HIDE_KEYS[i])) n.ccHide |= 1 << i;
             S old = snap;
             snap = n; snapAt = now;
             // The One UI finish lives in the tile colours, which the host only recomputes on a state change: push a refresh.
-            if (old.tileStyle != n.tileStyle && (QsArt.oneUiTile(old.tileStyle) || QsArt.oneUiTile(n.tileStyle))) refreshTileColors();
+            if ((old.tileStyle != n.tileStyle && (QsArt.oneUiTile(old.tileStyle) || QsArt.oneUiTile(n.tileStyle))) || old.tileColor != n.tileColor || Cfg.colorHash(old.tileCustom) != Cfg.colorHash(n.tileCustom)) refreshTileColors();
             if (old.ccEnable != n.ccEnable) refreshControlCenterSwitch();
-            if (old.ccCols != n.ccCols || old.ccHide != n.ccHide || old.ccGap != n.ccGap) refreshControlCenterViews();
+            if (old.ccCols != n.ccCols || old.ccHide != n.ccHide || old.ccGap != n.ccGap || old.ccGapDp != n.ccGapDp) refreshControlCenterViews();
         }
         return snap;
     }
@@ -814,6 +824,14 @@ final class QsHooks {
     }
     private static boolean isWide(View tile) { return tile.getClass().getName().equals(WIDE); }
 
+    /** {start, end} of the chosen "Colour of tiles that are on" for a shade tile in state 2 (on), else null. */
+    private static int[] activeColors(View tile, int state) {
+        if (tile == null || state != 2 || !main() || s().tileColor <= 0 || !isTile(tile)) return null;
+        try { if (XposedHelpers.getBooleanField(tile, "mIsCustomizeTile")) return null; } catch (Throwable ignored) { }
+        S cur = s();
+        return cur.tileCustom != null ? cur.tileCustom.clone() : QsArt.panelColors(tile.getContext(), cur.tileColor, dark(tile));
+    }
+
     /**
      * One UI 7/8 tile colours. The firmware takes every tile colour from MultiThemeFeature through overridable getters on
      * QSTileViewBase (background start / end → GradientDrawable.setColors in setGradientBackColors, labels) and from
@@ -825,7 +843,10 @@ final class QsHooks {
         if (base == null) { Lx.w("QS: QSTileViewBase missing, One UI tile colours disabled"); return; }
         XC_MethodHook background = new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
-                if (p.hasThrowable() || !(p.thisObject instanceof View) || !oneUi((View) p.thisObject)) return;
+                if (p.hasThrowable() || !(p.thisObject instanceof View)) return;
+                int[] ac = p.args.length > 0 && p.args[0] instanceof Integer ? activeColors((View) p.thisObject, (Integer) p.args[0]) : null;
+                if (ac != null) { p.setResult(((Method) p.method).getName().contains("End") ? ac[1] : ac[0]); return; }
+                if (!oneUi((View) p.thisObject)) return;
                 View tile = (View) p.thisObject;
                 int c = s().tileStyle == QsArt.ONE_UI8_TILE ? QsArt.oneUi8Background((Integer) p.args[0], isWide(tile), dark(tile)) : QsArt.oneUiBackground((Integer) p.args[0], dark(tile));
                 if (c != 0) p.setResult(c);
@@ -833,9 +854,14 @@ final class QsHooks {
         };
         XC_MethodHook label = new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
-                if (p.hasThrowable() || !(p.thisObject instanceof View) || !oneUi((View) p.thisObject)) return;
-                View tile = (View) p.thisObject;
+                if (p.hasThrowable() || !(p.thisObject instanceof View)) return;
                 boolean secondary = ((Method) p.method).getName().startsWith("getSecondary");
+                if (isWide((View) p.thisObject) && p.args.length > 0 && p.args[0] instanceof Integer) {
+                    int[] ac = activeColors((View) p.thisObject, (Integer) p.args[0]);
+                    if (ac != null) { int on = QsArt.onColor(ac[0]); p.setResult(secondary ? (on & 0x00FFFFFF) | 0xA6000000 : on); return; }
+                }
+                if (!oneUi((View) p.thisObject)) return;
+                View tile = (View) p.thisObject;
                 boolean eight = s().tileStyle == QsArt.ONE_UI8_TILE;
                 int st = (Integer) p.args[0];
                 int c = eight ? (secondary ? QsArt.oneUi8SecondaryLabel(st, dark(tile)) : QsArt.oneUi8Label(st, dark(tile)))
@@ -861,8 +887,10 @@ final class QsHooks {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     if (p.hasThrowable() || !(p.thisObject instanceof View) || p.args[0] == null) return;
                     View tile = tileOf((View) p.thisObject);
-                    if (!oneUi(tile)) return;
                     int st = XposedHelpers.getIntField(p.args[0], "state");
+                    int[] ac = activeColors(tile, st);
+                    if (ac != null) { p.setResult(QsArt.onColor(ac[0])); return; }
+                    if (!oneUi(tile)) return;
                     int c = s().tileStyle == QsArt.ONE_UI8_TILE ? QsArt.oneUi8Icon(st, dark(tile)) : QsArt.oneUiIcon(st, dark(tile));
                     if (c != 0) p.setResult(c);
                 }
@@ -874,8 +902,10 @@ final class QsHooks {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     if (p.hasThrowable() || !(p.args[1] instanceof ImageView)) return;
                     View tile = tileOf((View) p.args[1]);
-                    if (!oneUi(tile)) return;
                     int st = (Integer) p.args[3];
+                    int[] ac = activeColors(tile, st);
+                    if (ac != null) { ((ImageView) p.args[1]).setImageTintList(ColorStateList.valueOf(QsArt.onColor(ac[0]))); return; }
+                    if (!oneUi(tile)) return;
                     int c = s().tileStyle == QsArt.ONE_UI8_TILE ? QsArt.oneUi8Icon(st, dark(tile)) : QsArt.oneUiIcon(st, dark(tile));
                     if (c != 0) ((ImageView) p.args[1]).setImageTintList(ColorStateList.valueOf(c));
                 }
@@ -885,8 +915,15 @@ final class QsHooks {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     if (p.hasThrowable() || !(p.args[1] instanceof TextView)) return;
                     View tile = tileOf((View) p.args[1]);
-                    if (!oneUi(tile)) return;
                     int st = (Integer) p.args[4];
+                    int[] ac = tile != null && isWide(tile) ? activeColors(tile, st) : null;
+                    if (ac != null) {
+                        int on = QsArt.onColor(ac[0]);
+                        ((TextView) p.args[1]).setTextColor(on);
+                        if (p.args[2] instanceof TextView) ((TextView) p.args[2]).setTextColor((on & 0x00FFFFFF) | 0xA6000000);
+                        return;
+                    }
+                    if (!oneUi(tile)) return;
                     boolean eight = s().tileStyle == QsArt.ONE_UI8_TILE;
                     int c = eight ? QsArt.oneUi8Label(st, dark(tile)) : QsArt.oneUiLabel(st, isWide(tile), dark(tile));
                     int c2 = eight ? QsArt.oneUi8SecondaryLabel(st, dark(tile)) : QsArt.oneUiSecondaryLabel(st, dark(tile));
@@ -992,7 +1029,7 @@ final class QsHooks {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
                 if (!main()) return;
                 String name = p.thisObject.getClass().getName();
-                if (!sliderName(name) || styleFor(name) == 0) return;
+                if (!sliderName(name) || (styleFor(name) == 0 && s().sliderColor == 0)) return;
                 try { trackSlider((SeekBar) p.thisObject); } catch (Throwable t) { Lx.e("QS: brightness track", t); }
             }
             @Override protected void afterHookedMethod(MethodHookParam p) {
@@ -1105,23 +1142,25 @@ final class QsHooks {
                         return;
                     }
                     int style = slider.volume ? s.ccVolumeStyle : s.brightnessStyle;
-                    if (style <= 0 || !sliderEligible(slider, d)) return;
+                    if ((style <= 0 && s.sliderColor <= 0) || !sliderEligible(slider, d)) return;
                     SeekBar view = slider.slider.get();
                     if (view == null) return;
                     Drawable root = view.getProgressDrawable();
                     GradientDrawable[] parts = sliderLayers(root);
                     boolean fill = parts != null && parts[1] == d;
+                    int[] fillColors = s.sliderCustom != null ? s.sliderCustom.clone() : s.sliderColor > 0 ? QsArt.panelColors(view.getContext(), s.sliderColor, dark(view)) : null;
                     if (style == QsArt.ONE_UI8_BRIGHTNESS) {
                         if (fill) { p.setResult(null); return; }   // painted together with the track
                         Rect b = d.getBounds();
                         if (b.isEmpty() || !(root instanceof LayerDrawable)) return;
                         Drawable progress = ((LayerDrawable) root).findDrawableByLayerId(android.R.id.progress);
                         float fraction = progress == null ? 0f : progress.getLevel() / 10000f;
-                        QsArt.drawOneUi8Slider(canvas, new RectF(b), fraction, dark(view));
+                        QsArt.drawOneUi8Slider(canvas, new RectF(b), fraction, dark(view), fillColors);
                         p.setResult(null);
                         return;
                     }
-                    if (QsArt.drawBrightness(style, canvas, d, density(view), fill, dark(view), stock)) p.setResult(null);
+                    if (style <= 0 && !fill) return;   // only the fill changes colour; the stock track stays
+                    if (QsArt.drawBrightness(style, canvas, d, density(view), fill, dark(view), fillColors, stock)) p.setResult(null);
                 } catch (Throwable t) { Lx.e("QS: gradient draw", t); }
             }
         });
@@ -1235,7 +1274,7 @@ final class QsHooks {
             Integer stockV = (Integer) XposedHelpers.getAdditionalInstanceField(layout, "rmtweaks:cc-stock-vgap");
             int curV = n(layout, "mCellMarginVertical");
             if (stockV == null) { stockV = curV; XposedHelpers.setAdditionalInstanceField(layout, "rmtweaks:cc-stock-vgap", stockV); }
-            int wantV = stockV + Math.round(QsFeatures.CC_TILE_GAP_ROW_DP[s().ccGap] * layout.getResources().getDisplayMetrics().density);
+            int wantV = stockV + Math.round(QsFeatures.ccGapRowDp(s().ccGap, s().ccGapDp) * layout.getResources().getDisplayMetrics().density);
             if (wantV != curV) put(layout, "mCellMarginVertical", wantV);
         } catch (Throwable t) { Lx.w("QS: Control Center row gap: " + t); }
     }
@@ -1257,7 +1296,7 @@ final class QsHooks {
         Object stockTag = XposedHelpers.getAdditionalInstanceField(box, "rmtweaks:cc-circle");
         int stock = stockTag instanceof Integer ? (Integer) stockTag : lp.width;
         if (!(stockTag instanceof Integer)) XposedHelpers.setAdditionalInstanceField(box, "rmtweaks:cc-circle", stock);
-        int want = Math.round(stock * QsFeatures.CC_TILE_GAP_SCALE[s().ccGap]);
+        int want = Math.round(stock * QsFeatures.ccGapScale(s().ccGap, s().ccGapDp));
         if (lp.width == want && lp.height == want) return;
         lp.width = want; lp.height = want;
         box.setLayoutParams(lp);

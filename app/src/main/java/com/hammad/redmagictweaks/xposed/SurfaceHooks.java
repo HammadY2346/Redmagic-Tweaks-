@@ -61,6 +61,9 @@ final class SurfaceHooks {
 
     static final class S {
         int notifStyle, notifOpacity, notifCorner, iconLimit, volume, power;
+        int notifTint, notifGapDp, notifSideDp;               // tint = QsArt.PANEL_COLORS index; gap / side = dp added to stock
+        int[] notifTintCustom;                                // custom tint {start, end} (ColorPick), or null
+        int pwrPosDp, pwrLayout, pwrDim = -1;                 // power menu: offset, SurfaceFeatures.PWR_LAYOUTS index, dim % (-1 = stock)
         boolean noAutoHeadsUp, overflowCount, volOneUi, pwrOneUi;
         /** the module draws the volume bar (One UI panel, or RedMagic's bar restyled), and changes the panel's size */
         boolean volCustom, volLayout;
@@ -81,11 +84,20 @@ final class SurfaceHooks {
         if (now - snapAt > 1000) {
             S n = new S();
             n.notifStyle = clamp(Cfg.choice(SurfaceFeatures.NOTIF_STYLE), SurfaceArt.NOTIF_STYLES.length - 1);
-            n.notifOpacity = SurfaceArt.opacity(Cfg.choice(SurfaceFeatures.NOTIF_OPACITY));
-            n.notifCorner = SurfaceArt.cornerDp(Cfg.choice(SurfaceFeatures.NOTIF_CORNERS));
+            n.notifOpacity = Cfg.num(SurfaceFeatures.NOTIF_OPACITY, SurfaceArt.opacity(Cfg.choice(SurfaceFeatures.NOTIF_OPACITY)));
+            if (n.notifOpacity >= 100) n.notifOpacity = 0;
+            n.notifCorner = Cfg.num(SurfaceFeatures.NOTIF_CORNERS, SurfaceArt.cornerDp(Cfg.choice(SurfaceFeatures.NOTIF_CORNERS)));
+            n.notifTint = clamp(Cfg.choice(SurfaceFeatures.NOTIF_TINT), QsArt.PANEL_COLORS.length - 1);
+            n.notifTintCustom = Cfg.colorPair(SurfaceFeatures.NOTIF_TINT);
+            if (n.notifTintCustom != null && n.notifTint <= 0) n.notifTint = 2;
+            n.notifGapDp = Cfg.num(SurfaceFeatures.NOTIF_GAP, SurfaceFeatures.pick(SurfaceFeatures.NOTIF_GAP_DP, Cfg.choice(SurfaceFeatures.NOTIF_GAP)));
+            n.notifSideDp = Cfg.num(SurfaceFeatures.NOTIF_SIDE, SurfaceFeatures.pick(SurfaceFeatures.NOTIF_SIDE_DP, Cfg.choice(SurfaceFeatures.NOTIF_SIDE)));
+            n.pwrPosDp = Cfg.num(SurfaceFeatures.PWR_POSITION, SurfaceFeatures.pick(SurfaceFeatures.PWR_POSITION_DP, Cfg.choice(SurfaceFeatures.PWR_POSITION)));
+            n.pwrLayout = clamp(Cfg.choice(SurfaceFeatures.PWR_LAYOUT), SurfaceFeatures.PWR_LAYOUTS.length - 1);
+            n.pwrDim = Cfg.num(SurfaceFeatures.PWR_DIM, SurfaceFeatures.pick(SurfaceFeatures.PWR_DIM_PCT, Cfg.choice(SurfaceFeatures.PWR_DIM)));
             n.noAutoHeadsUp = Cfg.on(SurfaceFeatures.NOTIF_NO_AUTO_HEADSUP);
             n.overflowCount = Cfg.on(SurfaceFeatures.NOTIF_OVERFLOW_COUNT);
-            n.iconLimit = SurfaceFeatures.iconLimit(Cfg.choice(SurfaceFeatures.NOTIF_ICON_LIMIT));
+            n.iconLimit = Cfg.num(SurfaceFeatures.NOTIF_ICON_LIMIT, SurfaceFeatures.iconLimit(Cfg.choice(SurfaceFeatures.NOTIF_ICON_LIMIT)));
             n.volume = clamp(Cfg.choice(SurfaceFeatures.VOL_STYLE), SurfaceArt.VOLUME_STYLES.length - 1);
             n.power = clamp(Cfg.choice(SurfaceFeatures.PWR_STYLE), SurfaceArt.CARD_STYLES.length - 1);
             n.volOneUi = Cfg.on(SurfaceFeatures.VOL_ONEUI);
@@ -107,6 +119,7 @@ final class SurfaceHooks {
 
     static void install(ClassLoader cl) {
         try { notification(cl); } catch (Throwable t) { Lx.e("Surface: notification install", t); }
+        try { notifSpacing(cl); } catch (Throwable t) { Lx.e("Surface: notification spacing install", t); }
         try { headsUp(cl); } catch (Throwable t) { Lx.e("Surface: heads-up install", t); }
         try { icons(cl); } catch (Throwable t) { Lx.e("Surface: notification icons install", t); }
         try { volume(cl); } catch (Throwable t) { Lx.e("Surface: volume install", t); }
@@ -132,7 +145,7 @@ final class SurfaceHooks {
         H.hook(H.find(bg, "draw", Canvas.class, Drawable.class), new XC_MethodHook() {
             @Override protected void beforeHookedMethod(final MethodHookParam p) {
                 S s = s();
-                if (s.notifStyle <= 0 && s.notifOpacity <= 0 && s.notifCorner <= 0) return;
+                if (s.notifStyle <= 0 && s.notifOpacity <= 0 && s.notifCorner <= 0 && s.notifTint <= 0) return;
                 if (!main() || !(p.thisObject instanceof View)) return;
                 final View view = (View) p.thisObject;
                 if (!notifEligible(view)) return;
@@ -149,6 +162,17 @@ final class SurfaceHooks {
                         RectF bounds = new RectF(nativeBg.getBounds());
                         float[] radii = (float[]) XposedHelpers.getObjectField(view, "mCornerRadii");
                         if (s.notifStyle > 0 && radii != null) SurfaceArt.drawCard(s.notifStyle, canvas, bounds, radii, density, dark(view));
+                        if (s.notifTint > 0 && !bounds.isEmpty()) {
+                            // wash only what the card painted (SRC_ATOP on this background-only layer)
+                            int[] tint = s.notifTintCustom != null ? s.notifTintCustom.clone() : QsArt.panelColors(view.getContext(), s.notifTint, dark(view));
+                            if (tint != null) {
+                                Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG);
+                                QsArt.fillPaint(tp, bounds, tint);
+                                tp.setAlpha(SurfaceFeatures.NOTIF_TINT_ALPHA);
+                                tp.setXfermode(new android.graphics.PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP));
+                                canvas.drawRect(bounds, tp);
+                            }
+                        }
                         if (s.notifCorner != 0 && !bounds.isEmpty()) {
                             Path path = new Path(); path.addRoundRect(bounds, s.notifCorner * density, s.notifCorner * density, Path.Direction.CW);
                             // Clear outside the extra corner clip on this background-only layer.
@@ -164,6 +188,63 @@ final class SurfaceHooks {
     }
 
     // ============================================================================================= heads-up
+
+    // ============================================================================================= notification spacing
+
+    private static final String STACK_ALGO = "com.android.systemui.statusbar.notification.stack.StackScrollAlgorithm";
+    private static final String STACK_LAYOUT = "com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayout";
+    /** object -> {stock value, value we wrote} per field, so re-running a resource loader never adds twice. */
+    private static final Map<Object, int[]> gapSeen = new WeakHashMap<>(), sideSeen = new WeakHashMap<>();
+
+    /**
+     * Space between notification cards (mPaddingBetweenElements, read by StackScrollAlgorithm when it stacks the rows,
+     * and kept on NotificationStackScrollLayout for its height maths) and the side margin of the stack (mSidePaddings,
+     * recomputed by updateSidePadding on every measure). AOSP names; the resource loaders run on SystemUI start and
+     * config changes, so the card gap needs a SystemUI restart, the side margin follows the next measure.
+     */
+    private static void notifSpacing(ClassLoader cl) {
+        Class<?> algo = H.cls(cl, STACK_ALGO), stack = H.cls(cl, STACK_LAYOUT);
+        if (algo == null || stack == null) { Lx.w("Surface: notification stack classes missing, card gap / side margin off"); return; }
+        XC_MethodHook gap = new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (p.hasThrowable() || p.thisObject == null) return;
+                float density = p.thisObject instanceof View ? density((View) p.thisObject)
+                        : p.args.length > 0 && p.args[0] instanceof android.content.Context ? ((android.content.Context) p.args[0]).getResources().getDisplayMetrics().density
+                        : android.content.res.Resources.getSystem().getDisplayMetrics().density;
+                bump(gapSeen, p.thisObject, "mPaddingBetweenElements", Math.round(s().notifGapDp * density), 0);
+            }
+        };
+        int n = H.hookAll(algo, "initView", gap) + H.hookAll(algo, "updateResources", gap);
+        int m = H.hookAll(stack, "initView", gap) + H.hookAll(stack, "reinitView", gap);
+        int side = H.hookAll(stack, "updateSidePadding", new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (p.hasThrowable() || !(p.thisObject instanceof View)) return;
+                bump(sideSeen, p.thisObject, "mSidePaddings", dp((View) p.thisObject, s().notifSideDp), 0);
+            }
+        });
+        Lx.i("Surface: notification spacing hooks algo=" + n + " stack=" + m + " side=" + side);
+    }
+    private static final java.util.Set<String> bumpMissing = new java.util.HashSet<>();
+    private static void bump(Map<Object, int[]> seen, Object o, String field, int deltaPx, int min) {
+        try {
+            // int on most builds, float on RedMagic OS 11 (StackScrollAlgorithm / MfvStackScrollAlgorithm)
+            boolean isFloat = XposedHelpers.findField(o.getClass(), field).getType() == float.class;
+            int cur = isFloat ? Math.round(XposedHelpers.getFloatField(o, field)) : XposedHelpers.getIntField(o, field);
+            int[] st;
+            synchronized (seen) {
+                st = seen.get(o);
+                if (st == null && deltaPx == 0) return;                    // never touched, nothing to add
+                if (st == null || cur != st[1]) { st = new int[]{cur, cur}; seen.put(o, st); }  // the loader reset it
+            }
+            int want = Math.max(min, st[0] + deltaPx);
+            if (want != cur) { if (isFloat) XposedHelpers.setFloatField(o, field, want); else XposedHelpers.setIntField(o, field, want); }
+            st[1] = want;
+        } catch (Throwable t) {
+            String key = o.getClass().getName() + "." + field;
+            synchronized (bumpMissing) { if (!bumpMissing.add(key)) return; }
+            Lx.w("Surface: " + key + " not adjustable (" + t + ")");
+        }
+    }
 
     private static void headsUp(ClassLoader cl) {
         Class<?> owner = H.cls(cl, HEADS_UP), entry = H.cls(cl, NOTIF_ENTRY);
@@ -288,6 +369,35 @@ final class SurfaceHooks {
         };
         H.hook(H.find(dialog, "initRow", row, int.class, int.class, int.class, boolean.class, boolean.class), discover);
         H.hook(H.find(dialog, "showH", int.class, boolean.class, int.class), discover);
+        // side and distance from the edge: RedMagic sets the window to RIGHT|CENTER_VERTICAL at the cut-out inset
+        // (MfvVolumeDialogImpl.updateWindowParams); its show / hide slide follows isWindowGravityLeft()
+        H.hook(H.find(dialog, "updateWindowParams", android.view.WindowManager.LayoutParams.class), new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (p.hasThrowable() || !main() || !(p.args[0] instanceof android.view.WindowManager.LayoutParams)) return;
+                try { volSide((android.view.WindowManager.LayoutParams) p.args[0], p.thisObject); } catch (Throwable t) { Lx.e("Surface: volume side", t); }
+            }
+        });
+        H.hook(H.find(base, "isWindowGravityLeft"), new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (p.hasThrowable() || !main() || !p.thisObject.getClass().getName().equals(VOLUME_DIALOG)) return;
+                if (s().one.left) p.setResult(Boolean.TRUE);
+            }
+        });
+        // position up / down: the pop-up window's y from RedMagic's centred spot (gravity RIGHT|CENTER_VERTICAL)
+        H.hook(H.find(dialog, "showH", int.class, boolean.class, int.class), new XC_MethodHook() {
+            @Override protected void beforeHookedMethod(MethodHookParam p) {
+                if (!main()) return;
+                try { volPosition(p.thisObject); } catch (Throwable t) { Lx.e("Surface: volume position", t); }
+            }
+        });
+        // how long it stays: VolumeDialogImpl.computeTimeoutH (RedMagic's rescheduleTimeout goes through it)
+        H.hook(H.find(base, "computeTimeoutH"), new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (p.hasThrowable() || !main()) return;
+                int ms = s().one.timeoutMs;
+                if (ms > 0 && p.getResult() instanceof Integer) p.setResult(ms);
+            }
+        });
         H.hook(H.find(slider, "onDraw", Canvas.class), new XC_MethodHook() {
             @Override protected void beforeHookedMethod(final MethodHookParam p) {
                 S cur = s();
@@ -471,6 +581,57 @@ final class SurfaceHooks {
      * sits inside it, and narrows the expand button and (collapsed) the ringer button to the column. Everything goes
      * back to stock when the One UI panel is off.
      */
+    private static final Map<android.view.Window, Integer> volStockY = new java.util.WeakHashMap<>();
+    private static int lastPos = Integer.MIN_VALUE;
+
+    private static void volPosition(Object dlg) {
+        Object wo = XposedHelpers.getObjectField(dlg, "mWindow");
+        if (!(wo instanceof android.view.Window)) return;
+        android.view.Window w = (android.view.Window) wo;
+        android.view.WindowManager.LayoutParams lp = w.getAttributes();
+        Integer stock = volStockY.get(w);
+        if (stock == null) { stock = lp.y; volStockY.put(w, stock); }
+        int off = s().one.posDp;
+        int want = stock + Math.round(off * w.getContext().getResources().getDisplayMetrics().density);
+        int g = lp.gravity, x = lp.x;
+        volSide(lp, dlg);
+        if (lp.y != want || lp.gravity != g || lp.x != x) {
+            lp.y = want;
+            w.setAttributes(lp);
+            if (lastPos != off) { lastPos = off; Lx.i("Surface: volume panel moved " + off + " dp (window y " + stock + " -> " + want + ", gravity " + lp.gravity + ")"); }
+        }
+    }
+
+    /** RedMagic's own window gravity / x (right edge, cut-out inset), per dialog, to go back to. */
+    private static final Map<Object, int[]> volStockSide = new java.util.WeakHashMap<>();
+    private static String lastSide = "";
+
+    /** Panel side (left / right) and distance from that edge on the pop-up window's layout params. */
+    private static void volSide(android.view.WindowManager.LayoutParams lp, Object dlg) {
+        OneUiVolumeArt.Look l = s().one;
+        int[] st = volStockSide.get(dlg);
+        if (st == null) {
+            st = new int[]{lp.gravity, lp.x};
+            volStockSide.put(dlg, st);
+        }
+        if (!l.left && l.marginDp <= 0) {
+            lp.gravity = st[0]; lp.x = st[1];
+            return;
+        }
+        android.content.Context ctx = (android.content.Context) XposedHelpers.getObjectField(dlg, "mContext");
+        float density = ctx.getResources().getDisplayMetrics().density;
+        int inset = 0;
+        try {
+            android.view.DisplayCutout cut = ctx.getDisplay().getCutout();
+            if (cut != null) inset = l.left ? cut.getSafeInsetLeft() : cut.getSafeInsetRight();
+        } catch (Throwable ignored) { }
+        int vertical = st[0] & android.view.Gravity.VERTICAL_GRAVITY_MASK;
+        lp.gravity = vertical | (l.left ? android.view.Gravity.LEFT : android.view.Gravity.RIGHT);
+        lp.x = inset + Math.round(l.marginDp * density);
+        String sig = l.left + ":" + l.marginDp;
+        if (!sig.equals(lastSide)) { lastSide = sig; Lx.i("Surface: volume panel on the " + (l.left ? "left" : "right") + ", " + l.marginDp + " dp from the edge"); }
+    }
+
     private static void volLayout(Object dlg) {
         S cur = s();
         boolean on = cur.volLayout;
@@ -660,8 +821,19 @@ final class SurfaceHooks {
                 if (p.hasThrowable() || !main() || !(p.thisObject instanceof Dialog)) return;
                 powerDialogs.put((Dialog) p.thisObject, Boolean.TRUE);
                 if (s().pwrOneUi) { try { oneUiPower(XposedHelpers.getObjectField(p.thisObject, "mContentView")); } catch (Throwable t) { Lx.e("Surface: One UI power menu", t); } }
+                try { powerExtras(p.thisObject); } catch (Throwable t) { Lx.e("Surface: power menu position / layout / dim", t); }
             }
         });
+        // ZTE's software Gauss blur sets the blurred wallpaper (with a 20 % black filter) as the background later, async.
+        int blurHooks = H.hookAll(owner, "lambda$applyBlur$5", new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                int dim = s().pwrDim;
+                if (dim < 0 || p.hasThrowable() || !main()) return;
+                try { Object c = XposedHelpers.getObjectField(p.thisObject, "mContentView"); if (c instanceof View) powerDim((View) c, dim); }
+                catch (Throwable t) { Lx.e("Surface: power blur dim", t); }
+            }
+        });
+        if (blurHooks == 0) Lx.i("Surface: power blur callback not found, dim applies to the window-blur path only");
         // Decorates the native circular ImageButtons after their backgrounds and before their glyphs.
         H.hook(H.find(ImageView.class, "onDraw", Canvas.class), new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
@@ -722,6 +894,113 @@ final class SurfaceHooks {
             }
         }
     }
+    /**
+     * Position, button layout and dim for ZTE's power menu (any style). mLlActions is a RelativeLayout holding one
+     * RelativeLayout per action (button + label) placed with sibling rules; the layout option swaps those rules for plain
+     * top/left margins inside the same parent, so ZTE's tap-twice animation (which centres the picked action from its
+     * getLeft / getTop) still lines up. The position moves mLlActions' parent so the power-off-alarm block follows.
+     */
+    private static void powerExtras(Object dialog) {
+        S s = s();
+        Object content = XposedHelpers.getObjectField(dialog, "mContentView");
+        if (!(content instanceof ViewGroup)) return;
+        ViewGroup root = (ViewGroup) content;
+        if (s.pwrDim >= 0) powerDim(root, s.pwrDim);
+        if (s.pwrPosDp == 0 && s.pwrLayout <= 0) return;
+        Object acts = null;
+        try { acts = XposedHelpers.getObjectField(dialog, "mLlActions"); } catch (Throwable ignored) { }
+        if (!(acts instanceof ViewGroup)) { Lx.w("Surface: power actions (mLlActions) not found, position / layout skipped"); return; }
+        ViewGroup host = (ViewGroup) acts;
+        if (s.pwrLayout > 0) powerLayout(host, SurfaceFeatures.PWR_LAYOUT_COLS[s.pwrLayout]);
+        if (s.pwrPosDp != 0) {
+            View mover = host.getParent() instanceof View && host.getParent() != root ? (View) host.getParent() : host;
+            mover.setTranslationY(dp(mover, s.pwrPosDp));
+        }
+    }
+
+    /** Dim behind the power menu: the content view's background alpha (stock is a 20 % black ColorDrawable or the blurred bitmap). */
+    private static void powerDim(View root, int pct) {
+        int a = Math.max(0, Math.min(100, pct)) * 255 / 100;
+        Drawable bg = root.getBackground();
+        if (bg instanceof android.graphics.drawable.BitmapDrawable) {
+            if (a == 0) bg.clearColorFilter();
+            else bg.setColorFilter(new android.graphics.PorterDuffColorFilter(a << 24, PorterDuff.Mode.SRC_OVER));
+            root.invalidate();
+        } else {
+            int rgb = bg instanceof android.graphics.drawable.ColorDrawable ? ((android.graphics.drawable.ColorDrawable) bg).getColor() & 0xFFFFFF : 0;
+            root.setBackground(new android.graphics.drawable.ColorDrawable((a << 24) | rgb));
+        }
+    }
+
+    private static final Map<View, int[]> powerHosts = new WeakHashMap<>();
+    private static final Map<View, Boolean> powerPlaced = new WeakHashMap<>();
+
+    /** cols: -1 = everything on one row, 1 = vertical list, n = grid of n columns. */
+    private static void powerLayout(final ViewGroup host, int cols) {
+        if (!(host instanceof RelativeLayout)) { Lx.w("Surface: power actions host is " + host.getClass().getName() + ", layout skipped"); return; }
+        ViewGroup.LayoutParams hl = host.getLayoutParams();
+        if (hl != null && (hl.height != ViewGroup.LayoutParams.WRAP_CONTENT || hl.width != ViewGroup.LayoutParams.MATCH_PARENT)) {
+            hl.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+            hl.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            host.setLayoutParams(hl);
+        }
+        List<View> items = powerItems(host);
+        if (items.isEmpty()) { Lx.w("Surface: no power actions with image_button in " + host.getClass().getName() + ", layout skipped"); return; }
+        for (View v : items) placePower(v, 0, 0);       // drop the sibling rules now; real margins land after the first layout
+        int[] state = powerHosts.get(host);
+        if (state != null) { state[0] = cols; return; }
+        final int[] st = {cols};
+        powerHosts.put(host, st);
+        host.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            try { arrangePower(host, st[0]); } catch (Throwable e) { Lx.e("Surface: power layout", e); }
+        });
+    }
+    private static List<View> powerItems(ViewGroup host) {
+        List<View> items = new ArrayList<>();
+        for (int i = 0; i < host.getChildCount(); i++) {
+            View c = host.getChildAt(i);
+            if (c.getVisibility() == View.GONE || !(c instanceof ViewGroup)) continue;
+            ViewGroup g = (ViewGroup) c;
+            for (int j = 0; j < g.getChildCount(); j++)
+                if (g.getChildAt(j) instanceof ImageButton && "image_button".equals(g.getChildAt(j).getTag())) { items.add(c); break; }
+        }
+        return items;
+    }
+    private static void arrangePower(final ViewGroup host, int cols) {
+        final List<View> items = powerItems(host);
+        int n = items.size(), width = host.getWidth();
+        if (n == 0 || width <= 0) return;
+        int c = cols < 0 ? n : Math.max(1, Math.min(cols, n));
+        int iw = 0, ih = 0;
+        for (View v : items) { iw = Math.max(iw, v.getMeasuredWidth()); ih = Math.max(ih, v.getMeasuredHeight()); }
+        if (iw <= 0 || ih <= 0) return;
+        int gapX = dp(host, 28), gapY = dp(host, 24);
+        final int[] xs = new int[n], ys = new int[n];
+        boolean changed = false;
+        for (int k = 0; k < n; k++) {
+            int row = k / c, col = k % c, inRow = Math.min(c, n - row * c), gx = gapX;
+            int rowW = inRow * iw + (inRow - 1) * gx;
+            if (rowW > width && inRow > 1) { gx = Math.max(0, (width - inRow * iw) / (inRow - 1)); rowW = inRow * iw + (inRow - 1) * gx; }
+            View v = items.get(k);
+            xs[k] = Math.max(0, (width - rowW) / 2 + col * (iw + gx) + (iw - v.getMeasuredWidth()) / 2);
+            ys[k] = row * (ih + gapY);
+            ViewGroup.LayoutParams lp = v.getLayoutParams();
+            if (powerPlaced.get(v) == null || !(lp instanceof RelativeLayout.LayoutParams)
+                    || ((RelativeLayout.LayoutParams) lp).leftMargin != xs[k] || ((RelativeLayout.LayoutParams) lp).topMargin != ys[k]) changed = true;
+        }
+        if (!changed) return;
+        // Not inside the layout pass.
+        host.post(() -> { for (int k = 0; k < items.size(); k++) placePower(items.get(k), xs[k], ys[k]); });
+    }
+    private static void placePower(View v, int x, int y) {
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+        lp.leftMargin = x; lp.topMargin = y;
+        v.setLayoutParams(lp);
+        powerPlaced.put(v, Boolean.TRUE);
+    }
+
     private static void collect(ViewGroup g, List<View> out) {
         for (int i = 0; i < g.getChildCount(); i++) {
             View c = g.getChildAt(i);

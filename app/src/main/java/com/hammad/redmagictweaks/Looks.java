@@ -33,15 +33,30 @@ public final class Looks {
     public static V with(V base, Object[][] preset) {
         Map<String, Object> m = new HashMap<>();
         for (Object[] e : preset) m.put((String) e[0], e[1]);
+        presetsOnly(m);
         return over(base, m);
     }
 
-    /** {@code base} with one value changed (a choice index or a switch). */
+    /** {@code base} with one value changed (a choice index or a switch); a choice index means its preset, not a custom value. */
     public static V with(V base, String key, Object value) {
         Map<String, Object> m = new HashMap<>();
         m.put(key, value);
+        presetsOnly(m);
         return over(base, m);
     }
+
+    /** A choice given as an index shows that preset: its typed value / custom colour is off unless also given. */
+    private static void presetsOnly(Map<String, Object> m) {
+        java.util.List<String> keys = new java.util.ArrayList<>(m.keySet());
+        for (String k : keys) {
+            if (!(m.get(k) instanceof Number) || k.endsWith(Features.VALUE) || k.endsWith(ColorPick.C1) || k.endsWith(ColorPick.C2)) continue;
+            if (!m.containsKey(k + Features.CUSTOM)) m.put(k + Features.CUSTOM, Boolean.FALSE);
+            if (!m.containsKey(k + ColorPick.ON)) m.put(k + ColorPick.ON, Boolean.FALSE);
+        }
+    }
+
+    /** The custom colour of a colour option in {@code v} ({c1} or {c1, c2}), or null. */
+    public static int[] color(V v, String key) { return ColorPick.of(v, key); }
 
     private static V over(final V base, final Map<String, Object> m) {
         return new V() {

@@ -11,3 +11,4 @@ app/src/main/assets/licenses/poppins-OFL.txt
 # signing keys never go into git (the public key lives in the public repo's Actions secrets)
 keys/
 *.jks.b64
+.claude/

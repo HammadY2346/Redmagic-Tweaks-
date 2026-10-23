@@ -81,6 +81,7 @@ public final class Entry implements IXposedHookLoadPackage, IXposedHookZygoteIni
                     run("LockScreen", () -> LockHooks.install(lp.classLoader));
                     run("AOD", () -> AodHooks.install(lp.classLoader));
                     run("OneUiLock", () -> OneUiLockHooks.install(lp.classLoader));
+                    run("LockVideo", () -> LockVideoHooks.install(lp.classLoader));
                     run("StatusBar", () -> StatusBarHooks.install(lp.classLoader));
                     run("FingerprintUi", () -> FingerprintUiHooks.install(lp.classLoader));
                     run("Cosmetics", () -> CosmeticsHooks.install(lp.classLoader));
@@ -94,7 +95,8 @@ public final class Entry implements IXposedHookLoadPackage, IXposedHookZygoteIni
                 case "com.android.permissioncontroller": PermissionHooks.install(lp.classLoader); break;
                 case "android":                  FrameworkHooks.install(lp.classLoader); break;
                 case "com.zte.zgesture": case "com.zte.powersavemode": case "cn.nubia.keymapcenter": case "cn.nubia.colorfullight":
-                case "com.zte.heartyservice": case "cn.nubia.game.magicvoice": case "cn.nubia.touping":
+                case "com.zte.heartyservice": case "cn.nubia.game.magicvoice": case "cn.nubia.touping": case "cn.zte.chargeseparation":
+                case "cn.nubia.gamepi":
                     ExtrasHooks.install(lp.classLoader, pkg); break;
                 default: return;
             }

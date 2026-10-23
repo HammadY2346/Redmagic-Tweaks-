@@ -22,7 +22,27 @@ public final class LogStore {
 
     public static File file(Context c) { return new File(c.getFilesDir(), "hooks.log"); }
 
+    /** Logs page switch (key in the module settings, read by hooked apps through Cfg): true = nothing is recorded. */
+    public static final String OFF_KEY = "logs_off";
+
+    public static boolean enabled(Context c) {
+        try { return !Prefs.get(c).getBoolean(OFF_KEY, false); } catch (Throwable t) { return true; }
+    }
+
+    public static void setEnabled(Context c, boolean on) {
+        if (!on) note(c, stamp() + " [app] logging turned off");
+        Prefs.set(c, OFF_KEY, !on);
+        if (on) note(c, stamp() + " [app] logging turned on");
+    }
+
+    /** A line from a hooked app or from this app; dropped while logging is off. */
     public static void append(Context c, String line) {
+        if (!enabled(c)) return;
+        note(c, line);
+    }
+
+    /** Written whatever the switch says (the switch's own on / off lines). */
+    private static void note(Context c, String line) {
         synchronized (LOCK) {
             try {
                 File f = file(c);
@@ -67,6 +87,44 @@ public final class LogStore {
     public static void clear(Context c) {
         synchronized (LOCK) { //noinspection ResultOfMethodCallIgnored
             file(c).delete(); }
+    }
+
+    /**
+     * The lines as a .txt file in cache/logs (shared through FileProvider), with a header that says which phone and build
+     * they come from. Older exports are removed.
+     */
+    public static File exportTxt(Context c, List<String> lines, String what) throws IOException {
+        File dir = new File(c.getCacheDir(), "logs");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        File[] old = dir.listFiles();
+        if (old != null) for (File o : old) //noinspection ResultOfMethodCallIgnored
+            o.delete();
+        File f = new File(dir, txtName());
+        try (FileOutputStream out = new FileOutputStream(f, false)) {
+            out.write(txt(c, lines, what).getBytes(StandardCharsets.UTF_8));
+        }
+        return f;
+    }
+
+    public static String txtName() {
+        return BuildConfig.APP_NAME.replace(" ", "") + "-log-" + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date()) + ".txt";
+    }
+
+    public static String txt(Context c, List<String> lines, String what) {
+        StringBuilder sb = new StringBuilder();
+        String ver = "?";
+        try { ver = c.getPackageManager().getPackageInfo(c.getPackageName(), 0).versionName + " (" + BuildConfig.VERSION_CODE + ")"; } catch (Throwable ignored) { }
+        sb.append(BuildConfig.APP_NAME).append(" log, ").append(what).append(", ").append(lines.size()).append(" lines\n")
+          .append("saved: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date())).append('\n')
+          .append("app: ").append(ver).append('\n')
+          .append("phone: ").append(android.os.Build.MODEL).append(" (").append(android.os.Build.DEVICE).append("), Android ")
+          .append(android.os.Build.VERSION.RELEASE).append('\n')
+          .append("build: ").append(android.os.Build.DISPLAY).append('\n')
+          .append("fingerprint: ").append(android.os.Build.FINGERPRINT).append('\n')
+          .append("logging: ").append(enabled(c) ? "on" : "off").append("\n\n");
+        for (String l : lines) sb.append(l).append('\n');
+        return sb.toString();
     }
 
     public static String stamp() {

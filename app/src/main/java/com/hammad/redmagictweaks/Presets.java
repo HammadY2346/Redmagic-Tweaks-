@@ -130,7 +130,11 @@ public final class Presets {
         for (Object[] entry : preset) {
             String key = (String) entry[0];
             if (entry[1] instanceof Boolean) e.putBoolean(key, (Boolean) entry[1]);
-            else e.putInt(key, ((Number) entry[1]).intValue());
+            else {
+                e.putInt(key, ((Number) entry[1]).intValue());
+                e.putBoolean(key + Features.CUSTOM, false);        // the preset's value, not a typed value
+                e.putBoolean(key + ColorPick.ON, false);           // nor a custom colour
+            }
         }
         e.commit();
     }

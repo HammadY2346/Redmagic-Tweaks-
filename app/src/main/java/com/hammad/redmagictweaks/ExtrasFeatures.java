@@ -21,9 +21,11 @@ public final class ExtrasFeatures {
     public static final String BAT_SUPER_MODE = "bat_super_mode";
     public static final String BAT_REFRESH_RATE = "bat_refresh_rate";
     public static final String BAT_CHARGE_SEPARATION = "bat_charge_separation";
+    public static final String BAT_SEPARATION_100 = "bat_separation_100";
     public static final String BAT_LONG_CHARGE = "bat_long_charge";
     public static final String BAT_TIME = "bat_time";
     public static final String BAT_5G_SAVE = "bat_5g_save";
+    public static final String BAT_HEALTH = "bat_health";
     // Key mapping (cn.nubia.keymapcenter)
     public static final String KEY_CONTINUOUS = "key_continuous";
     public static final String KEY_XGRAVITY = "key_xgravity";
@@ -64,9 +66,11 @@ public final class ExtrasFeatures {
         new Features.Feature(BAT_SUPER_MODE, "Battery: ultra power saving mode", "Shows the Super (ultra) power saving mode entry when ZTE removed it (ZTE_FEATURE_REMOVE_SUPER_MODE). Restart the Battery app."),
         new Features.Feature(BAT_REFRESH_RATE, "Battery: refresh-rate options in power saving", "Shows the refresh-rate items the power-saving pages hide (ZTE_FEATURE_POWER_SAVER_REMOVE_REFRESH_RATE and the save-mode item filter). Restart the Battery app."),
         new Features.Feature(BAT_CHARGE_SEPARATION, "Battery: charge separation switch", "Shows the bypass / charge-separation switch in the Battery app outside Game Space (ZTE_FEATURE_BYPASS_CHARGE_SEPARATION). Restart the Battery app."),
+        new Features.Feature(BAT_SEPARATION_100, "Battery: charge separation up to 100 %", "Charge separation's \"Auto turn on\" slider goes up to 100 % instead of stopping at 90 %: the phone charges to full, then runs on the charger alone and stops topping up the battery. The Battery app and ZTE's charge-separation service (tick ChargeSeparation in LSPosed's scope for RM Tweaks) no longer move a value above 90 % back to 90 %. Restart the Battery app."),
         new Features.Feature(BAT_LONG_CHARGE, "Battery: long-charging reminder switch", "Shows the \"remind when charging for a long time\" switch (ZTE_FEATURE_SHOW_LONG_CHARGE_NOTIFY). Restart the Battery app."),
         new Features.Feature(BAT_TIME, "Battery: remaining-time estimate", "Always shows the estimated remaining battery time on the Battery page. Restart the Battery app."),
         new Features.Feature(BAT_5G_SAVE, "Battery: 5G power saving menu", "Shows the 5G power-saving menu and per-app 5G setting. Restart the Battery app."),
+        new Features.Feature(BAT_HEALTH, "Battery: battery health page", "Adds the Battery health page that the global firmware has to Settings → Battery: battery health %, charge cycles, production and first-use date, and the 80 % charge limit (ZTE_FEATURE_POWER_BATTERY_HEALTH). If the firmware gives no cycle count or health, the numbers are read from the battery driver instead. Restart the Battery app."),
         new Features.Feature(KEY_CONTINUOUS, "Key mapping: shoulder-trigger continuous click", "Forces ZTE_FEATURE_KEYMAP_CONTINUOUS_CLICK on in the key-mapping centre so a trigger can repeat taps while held. Restart Game Space."),
         new Features.Feature(KEY_XGRAVITY, "Key mapping: X-Gravity gamepad options", "Forces the operation-devices plugin flag on so the key-mapping centre shows the X-Gravity / gamepad options even when the accessory is not detected. Restart Game Space."),
         new Features.Feature(LIGHT_FAN, "Lights: fan light settings", "Forces COLORFULLIGHT_SUPPORT_DAZZLING, ZTE_FEATURE_GAME_FAN and ZTE_FEATURE_FAN_COLORFUL_LIGHT on so the Lights app shows the fan-light scene and colour options. Only does something if the fan has an RGB LED. Restart the Lights app."),

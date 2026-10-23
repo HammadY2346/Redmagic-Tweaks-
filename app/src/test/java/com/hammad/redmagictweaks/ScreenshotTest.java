@@ -116,6 +116,19 @@ public class ScreenshotTest {
             Dialog d = ShadowDialog.getLatestDialog();
             if (d != null) snap(d.getWindow().getDecorView(), new File(out, "check-" + BuildConfig.FLAVOR + "-10-bar-colour.png"));
         }
+        // a typed value: the width sheet with "Custom value…" picked and its slider
+        Prefs.set(ctx, "vol_oneui_width_c", true);
+        Prefs.set(ctx, "vol_oneui_width_v", 30);
+        Activity vol2 = Robolectric.buildActivity(CategoryActivity.class,
+                new Intent(ctx, CategoryActivity.class).putExtra(CategoryActivity.EXTRA_CATEGORY, "volume")).setup().get();
+        View width = findRow(vol2.findViewById(R.id.list), "Panel width");
+        if (width != null) {
+            width.performClick();
+            shadowOf(Looper.getMainLooper()).idle();
+            Dialog d = ShadowDialog.getLatestDialog();
+            if (d != null) snap(d.getWindow().getDecorView(), new File(out, "check-" + BuildConfig.FLAVOR + "-12-width-custom.png"));
+        }
+        Prefs.set(ctx, "vol_oneui_width_c", false);
         UiPrefs.setDetailed(ctx, false);
         Activity fp = Robolectric.buildActivity(CategoryActivity.class,
                 new Intent(ctx, CategoryActivity.class).putExtra(CategoryActivity.EXTRA_CATEGORY, "fingerprint")).setup().get();

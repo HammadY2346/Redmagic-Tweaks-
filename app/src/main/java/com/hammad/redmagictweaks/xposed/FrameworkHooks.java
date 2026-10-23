@@ -5,8 +5,10 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 
+import com.hammad.redmagictweaks.Features;
 import com.hammad.redmagictweaks.FrameworkFeatures;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -38,7 +40,65 @@ final class FrameworkHooks {
         thermalAndPower(cl);
         refreshRate(cl);
         notifications(cl);
+        games(cl);
+        googleIntl(cl);
+        try { GameViewHooks.install(cl); } catch (Throwable t) { Lx.e("Games: view hooks", t); }
         Lx.i("Framework: hooks ready");
+    }
+
+    // ------------------------------------------------------------ Google apps: international mode
+
+    private static final String CN_GOOGLE = "cn.google.services";
+    private static final Map<Integer, Boolean> googleUid = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The binder caller is one of Google's own apps (Play services, Services Framework, Play Store, com.google.android.*). */
+    private static boolean googleCaller() {
+        int uid = android.os.Binder.getCallingUid();
+        if (uid < 10000) return false;
+        Boolean b = googleUid.get(uid);
+        if (b != null) return b;
+        boolean g = false;
+        try {
+            String[] pkgs = sys == null ? null : sys.getPackageManager().getPackagesForUid(uid);
+            if (pkgs != null) for (String p : pkgs) if (p.startsWith("com.google.android.") || p.equals("com.android.vending")) { g = true; break; }
+        } catch (Throwable ignored) { return false; }
+        googleUid.put(uid, g);
+        return g;
+    }
+
+    /**
+     * China firmware declares the system feature cn.google.services; Google Play services reads it as "China build" and
+     * turns off Quick Share / Nearby Share and other services. Hidden from Google's apps only (hasSystemFeature and the
+     * feature list); every other app sees the firmware as it is.
+     */
+    private static void googleIntl(ClassLoader cl) {
+        int n = 0;
+        Class<?> base = XposedHelpers.findClassIfExists("com.android.server.pm.IPackageManagerBase", cl);
+        if (H.hook(H.find(base, "hasSystemFeature", String.class, int.class), new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (!CN_GOOGLE.equals(p.args[0]) || !Boolean.TRUE.equals(p.getResult()) || !Cfg.on(FrameworkFeatures.GOOGLE_INTL)) return;
+                if (!googleCaller()) return;
+                p.setResult(false);
+                if (loggedGames.add("cngoogle:" + android.os.Binder.getCallingUid())) Lx.i("Google: " + CN_GOOGLE + " hidden from uid " + android.os.Binder.getCallingUid());
+            }
+        })) n++;
+        Class<?> impl = XposedHelpers.findClassIfExists("com.android.server.pm.PackageManagerService$IPackageManagerImpl", cl);
+        if (H.hook(H.find(impl, "getSystemAvailableFeatures"), new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                try {
+                    if (!Cfg.on(FrameworkFeatures.GOOGLE_INTL) || p.getResult() == null || !googleCaller()) return;
+                    java.util.List<?> l = (java.util.List<?>) XposedHelpers.callMethod(p.getResult(), "getList");
+                    java.util.List<android.content.pm.FeatureInfo> out = new java.util.ArrayList<>();
+                    boolean drop = false;
+                    for (Object o : l) {
+                        if (o instanceof android.content.pm.FeatureInfo && CN_GOOGLE.equals(((android.content.pm.FeatureInfo) o).name)) { drop = true; continue; }
+                        out.add((android.content.pm.FeatureInfo) o);
+                    }
+                    if (drop) p.setResult(XposedHelpers.newInstance(p.getResult().getClass(), out));
+                } catch (Throwable t) { Lx.e("Google: feature list", t); }
+            }
+        })) n++;
+        Lx.i("Google: international mode hooks " + n);
     }
 
     // ------------------------------------------------------------ helpers
@@ -396,6 +456,20 @@ final class FrameworkHooks {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
                 String who = String.valueOf(p.args[1]);
                 if (who.startsWith("screen-off")) return;
+                // frame interpolation sets its own panel rate (getInterpFps). With a target picked, nothing runs the panel
+                // slower while it is on: a touch, TGPA or Game Assist request could otherwise drop it back to 120 Hz
+                if ("Enable-interp".equals(who) || interpActive(p.thisObject, topPkg)) {
+                    try {
+                        int want = interpTarget(ctl);
+                        int asked = (Integer) p.args[0];
+                        if (want > 0 && asked < want && interpActive(p.thisObject, topPkg)) {
+                            p.args[0] = want;
+                            if (lastLogged.getAndSet(20000 + want) != 20000 + want)
+                                Lx.i("RefreshRate: frame interpolation keeps the panel at " + want + " Hz (asked " + asked + " by " + who + ")");
+                        }
+                    } catch (Throwable t) { Lx.e("RefreshRate: interpolation floor", t); }
+                    return;
+                }
                 int f = forcedFps(ctl);
                 if (f <= 0) return;
                 int asked = (Integer) p.args[0];
@@ -407,8 +481,33 @@ final class FrameworkHooks {
         })) n++;
         if (H.hook(H.find(ctl, "getTargetFps", String.class, String.class), new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (interpActive(p.thisObject, (String) p.args[0])) return;   // the interpolation rate stays
                 int f = forcedFps(ctl);
                 if (f > 0) p.setResult(f);
+            }
+        })) n++;
+        // Game Space frame interpolation (GFRC): the panel rate while it is on. Stock: Super 120 Hz, Ultra sHighestFps.
+        if (H.hook(H.find(ctl, "getInterpFps", int.class), new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                try {
+                    if (XposedHelpers.getIntField(p.thisObject, "mInterp") == 0) return;
+                    int want = interpTarget(ctl);
+                    if (want <= 0) return;
+                    Object was = p.getResult();
+                    if (was instanceof Integer && (Integer) was == want) return;
+                    p.setResult(want);
+                    if (lastLogged.getAndSet(10000 + want) != 10000 + want) Lx.i("RefreshRate: frame interpolation runs the panel at " + want + " Hz (stock " + was + ")");
+                } catch (Throwable t) { Lx.e("RefreshRate: interpolation rate", t); }
+            }
+        })) n++;
+        else Lx.w("framework: ScreenRefreshRateController#getInterpFps not found, interpolation rate stays stock");
+        // cubeserver -> ScreenRefreshRateInternal.notePackageInterpState -> here: interpolation on (1 Super, 2 Ultra) / off (0)
+        if (H.hook(H.find(ctl, "updatePackageInterpState", String.class, int.class), new XC_MethodHook() {
+            @Override protected void beforeHookedMethod(MethodHookParam p) {
+                final String pkg = (String) p.args[0];
+                final int level = (Integer) p.args[1];
+                Lx.i("Games: frame interpolation " + (level == 0 ? "off" : "on, " + (level == 1 ? "Super" : level == 2 ? "Ultra" : "level " + level)) + " for " + pkg);
+                if (level != 0) interpCheck(ctl, p.thisObject, pkg, level);
             }
         })) n++;
         // remember the foreground package for the video exception
@@ -423,7 +522,7 @@ final class FrameworkHooks {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     try {
                         int mode = p.args.length > 0 && p.args[0] instanceof Integer ? (Integer) p.args[0] : XposedHelpers.getStaticIntField(gsf, "sRefreshRateMode");
-                        if (mode == 5) {
+                        if (mode == 5 && (!com.hammad.redmagictweaks.FlavorBits.publicBuild() || android.os.Build.VERSION.SDK_INT >= 36)) {
                             // the 165 Hz choice (refresh_rate_mode 5): firmware without that mode (RedMagic OS 10, whose
                             // Settings gets the choice from SettingsHooks) runs it at the panel's highest rate
                             int hi = XposedHelpers.getStaticIntField(ctl, "sHighestFps");
@@ -451,6 +550,292 @@ final class FrameworkHooks {
             if (H.hook(H.find(gsf, "getSettingFps"), raise)) n++;
         } else Lx.w("framework: GlobalSettingFpsController missing");
         Lx.i("framework: refresh-rate hooks " + n);
+    }
+
+    /** The panel rate picked for frame interpolation (GAME_GFRC_TARGET), or -1 = stock. */
+    private static int interpTarget(Class<?> ctl) {
+        int idx = Cfg.choice(Features.GAME_GFRC_TARGET);
+        if (idx <= 0 || idx >= Features.GFRC_TARGET_HZ.length) return -1;
+        int hi = XposedHelpers.getStaticIntField(ctl, "sHighestFps");
+        int want = Features.GFRC_TARGET_HZ[idx] < 0 ? hi : Features.GFRC_TARGET_HZ[idx];
+        if (want == 90 && !staticBool(ctl, "isRealSupport_90Hz")) return -1;          // no real 90 Hz mode: stock choice
+        if (want == 144 && !staticBool(ctl, "isSupport_144Hz")) want = hi;
+        if (hi > 0) want = Math.min(want, hi);
+        return Math.max(60, want);
+    }
+
+    /**
+     * 4 s after interpolation turns on: what the interpolation and the panel really run at (the vendor.gpp properties
+     * cubeserver set, the display's rate, Qualcomm's list entry for the game), so a log shows where a frame cap comes from.
+     */
+    private static void interpCheck(final Class<?> ctl, final Object ctlObj, final String pkg, final int level) {
+        Thread t = new Thread(() -> {
+            try { Thread.sleep(4000); } catch (InterruptedException e) { return; }
+            try {
+                StringBuilder sb = new StringBuilder("Games: interpolation check for ").append(pkg).append(" (")
+                        .append(level == 1 ? "Super" : level == 2 ? "Ultra" : "level " + level).append("): ");
+                for (String k : new String[]{"vendor.gpp.frc.enable", GFRC_INTERP_PROP, "vendor.gpp.gfrc.upscale.ratio", GFRC_ALL_PROP})
+                    sb.append(k.substring("vendor.gpp.".length())).append('=').append(sysProp(k)).append(", ");
+                try {
+                    Object dmg = XposedHelpers.callStaticMethod(Class.forName("android.hardware.display.DisplayManagerGlobal"), "getInstance");
+                    Object d = XposedHelpers.callMethod(dmg, "getRealDisplay", 0);
+                    Object mode = XposedHelpers.callMethod(d, "getMode");
+                    sb.append("panel ").append(Math.round((Float) XposedHelpers.callMethod(mode, "getRefreshRate"))).append(" Hz, render ")
+                            .append(Math.round((Float) XposedHelpers.callMethod(d, "getRefreshRate"))).append(" fps max, ");
+                } catch (Throwable e) { sb.append("panel ? (").append(e.getClass().getSimpleName()).append("), "); }
+                try {
+                    sb.append("interp panel ").append(XposedHelpers.callMethod(ctlObj, "getInterpFps", 0)).append(" Hz, top ")
+                            .append(XposedHelpers.getStaticIntField(ctl, "sHighestFps")).append(" Hz, ");
+                } catch (Throwable ignored) { }
+                String listed = "not on Qualcomm's list";
+                try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader("/system/etc/gpp_app_list"))) {
+                    for (String line; (line = r.readLine()) != null; ) if (line.trim().startsWith(pkg + ",")) { listed = "Qualcomm's list: " + line.trim(); break; }
+                } catch (Throwable e) { listed = "Qualcomm's list unreadable"; }
+                sb.append(listed);
+                Lx.i(sb.toString());
+            } catch (Throwable e) { Lx.e("Games: interpolation check", e); }
+        }, "rmtweaks-interp-check");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** Frame interpolation is on for pkg (or for any package when pkg is null): ScreenRefreshRateController.mInterp / mInterpPackage. */
+    private static boolean interpActive(Object ctl, String pkg) {
+        try {
+            if (XposedHelpers.getIntField(ctl, "mInterp") == 0) return false;
+            Object ip = XposedHelpers.getObjectField(ctl, "mInterpPackage");
+            return ip != null && (pkg == null || pkg.isEmpty() || ip.equals(pkg));
+        } catch (Throwable t) { return false; }
+    }
+
+    private static boolean staticBool(Class<?> c, String field) {
+        try { return XposedHelpers.getStaticBooleanField(c, field); } catch (Throwable t) { return true; }
+    }
+
+    // ------------------------------------------------------------ games: frame interpolation, full screen, launch boost
+
+    /** Qualcomm GPP: with this vendor property at 1, cubeserver's GfrcModeCtrl gives every package the full GFRC capability (22). */
+    private static final String GFRC_ALL_PROP = "vendor.gpp.allgame.enable";
+    private static final String GFRC_INTERP_PROP = "vendor.gpp.gfrc.interp.rate";
+    private static final Map<String, String> gppLogged = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile boolean gfrcPropSetByUs, gfrcPropFailLogged;
+    private static volatile Object gameAssistSvc;
+    private static volatile Method gameListCheck;
+    private static final Set<String> loggedGames = java.util.Collections.synchronizedSet(new HashSet<>());
+
+    /** pkg is a game added to Game Space (ZTE's IGameAssistSerivce local service in system_server, the check GameRatioStub uses). */
+    static boolean isGameSpaceGame(ClassLoader cl, String pkg) {
+        if (pkg == null) return false;
+        try {
+            if (gameAssistSvc == null) {
+                Class<?> ls = XposedHelpers.findClassIfExists("com.android.server.LocalServices", cl);
+                Class<?> igs = XposedHelpers.findClassIfExists("com.android.server.common.IGameAssistSerivce", cl);
+                if (ls == null || igs == null) return false;
+                Object svc = XposedHelpers.callStaticMethod(ls, "getService", igs);
+                if (svc == null) return false;
+                gameListCheck = igs.getMethod("isGameSpaceListApp", String.class);
+                gameAssistSvc = svc;
+            }
+            return Boolean.TRUE.equals(gameListCheck.invoke(gameAssistSvc, pkg));
+        } catch (Throwable t) { return false; }
+    }
+
+    private static String sysProp(String key) {
+        try { return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class, String.class).invoke(null, key, ""); }
+        catch (Throwable t) { return ""; }
+    }
+
+    /** vendor.gpp.allgame.enable follows the switch (the property is not persistent: set again after every boot). */
+    private static void syncGfrcProp() {
+        boolean on = Cfg.on(Features.GAME_GFRC_ALL);
+        String cur = sysProp(GFRC_ALL_PROP);
+        String want = on ? "1" : gfrcPropSetByUs && "1".equals(cur) ? "0" : null;
+        if (want == null || want.equals(cur)) return;
+        try {
+            Class.forName("android.os.SystemProperties").getMethod("set", String.class, String.class).invoke(null, GFRC_ALL_PROP, want);
+            gfrcPropSetByUs = on;
+            Lx.i("Games: " + GFRC_ALL_PROP + "=" + want + (on ? " (frame interpolation for every Game Space game)" : ""));
+        } catch (Throwable t) {
+            Throwable c = t instanceof java.lang.reflect.InvocationTargetException && t.getCause() != null ? t.getCause() : t;
+            if (!gfrcPropFailLogged) {
+                gfrcPropFailLogged = true;
+                Lx.w("Games: setting " + GFRC_ALL_PROP + " failed (" + c + "); the Game Space capability hook still unlocks the choices");
+            }
+        }
+    }
+
+    /**
+     * Every vendor.gpp.* property system_server sets (cubeserver's GfrcModeCtrl, MindSync, us) is logged when it changes,
+     * so a log shows the interpolation level (1 Super, 2 Ultra) Qualcomm's gppservice was given. This phone runs the VPP
+     * session (libgppvppgfrcplussession), which in logs added one generated frame per game frame at both levels.
+     */
+    private static void gppProps() {
+        XC_MethodHook h = new XC_MethodHook() {
+            @Override protected void beforeHookedMethod(MethodHookParam p) {
+                if (p.args.length < 2 || !(p.args[0] instanceof String)) return;
+                String key = (String) p.args[0];
+                if (!key.startsWith("vendor.gpp.")) return;
+                try {
+                    String val = String.valueOf(p.args[1]), note = "";
+                    if (GFRC_INTERP_PROP.equals(key)) note = "1".equals(val) ? " (Super)" : "2".equals(val) ? " (Ultra)" : "";
+                    if (!val.equals(gppLogged.put(key, val))) Lx.i("Games: " + key + "=" + val + note);
+                } catch (Throwable t) { Lx.e("Games: vendor.gpp property", t); }
+            }
+        };
+        boolean ok = H.hook(H.find(XposedHelpers.findClassIfExists("android.os.SystemProperties", null), "set", String.class, String.class), h);
+        Lx.i("Games: frame generation property hook " + (ok ? "on" : "missing"));
+    }
+
+    /**
+     * MindSync's game-mode cleanup (ManualBgCleanupPolicy.startBgAppsCleanupFromGameMode, reason bgc_gamemode) force-stops
+     * background apps when a game starts, RM Tweaks included, and the log provider goes with it: nothing from a game
+     * session reached the log. RM Tweaks is taken off the list (filterProtectedAppForGM, after).
+     */
+    private static void keepAliveInGames(ClassLoader cl) {
+        Class<?> c = XposedHelpers.findClassIfExists("com.android.server.am.ManualBgCleanupPolicy", cl);
+        final String me = com.hammad.redmagictweaks.BuildConfig.APPLICATION_ID;
+        int n = 0;
+        for (Method m : H.findAll(c, "filterProtectedAppForGM")) {
+            if (H.hook(m, new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam p) {
+                    if (p.args.length > 0 && p.args[0] instanceof java.util.List && ((java.util.List<?>) p.args[0]).remove(me))
+                        Lx.i("Games: game-mode cleanup leaves RM Tweaks running");
+                }
+            })) n++;
+        }
+        if (n == 0) Lx.w("Games: game-mode cleanup hook not found (RM Tweaks may be stopped when a game starts)");
+    }
+
+    private static void games(final ClassLoader cl) {
+        gppProps();
+        keepAliveInGames(cl);
+        int n = 0;
+        // 1. frame interpolation + super resolution for every game. Game Assist asks MindSync for a game's GFRC capability
+        //    (tens = upscaling, units = interpolation, 0..2 each; 0 keeps the panel at "Original"): answer 22.
+        Class<?> msvc = XposedHelpers.findClassIfExists("com.android.server.am.MindSyncService", cl);
+        Method cap = null;
+        if (msvc != null) {
+            for (int i = 1; i <= 12 && cap == null; i++) {
+                Class<?> stub = XposedHelpers.findClassIfExists("com.android.server.am.MindSyncService$" + i, cl);
+                if (stub != null) cap = H.find(stub, "getGfrcCapByPkg", String.class);
+            }
+        }
+        if (H.hook(cap, new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                try {
+                    syncGfrcProp();
+                    if (!Cfg.on(Features.GAME_GFRC_ALL) || !(p.getResult() instanceof Integer)) return;
+                    int was = (Integer) p.getResult();
+                    if (was == 22) return;
+                    p.setResult(22);
+                    if (loggedGames.add("gfrc:" + p.args[0])) Lx.i("Games: frame interpolation + super resolution unlocked for " + p.args[0] + " (capability " + was + " -> 22)");
+                } catch (Throwable t) { Lx.e("Games: GFRC capability", t); }
+            }
+        })) n++;
+        else Lx.w("Games: MindSyncService getGfrcCapByPkg not found, frame interpolation for every game only via " + GFRC_ALL_PROP);
+        // the property is not persistent: set it once the system is up (and again whenever Game Assist asks, above)
+        Thread t = new Thread(() -> {
+            for (int i = 0; i < 150; i++) {
+                if ("1".equals(sysProp("sys.boot_completed"))) { syncGfrcProp(); return; }
+                try { Thread.sleep(2000); } catch (InterruptedException e) { return; }
+            }
+        }, "rmtweaks-gfrc");
+        t.setDaemon(true);
+        t.start();
+
+        // 2. full screen for Game Space games: no max aspect ratio unless a ratio was picked in Game Space
+        //    (AppCompatAspectRatioPolicy.applyAspectRatio then leaves the bounds alone; a 16:9 picture can't be stretched).
+        Class<?> policy = XposedHelpers.findClassIfExists(WM + "AppCompatAspectRatioPolicy", cl);
+        if (H.hook(H.find(policy, "getMaxAspectRatio"), new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                try {
+                    if (!Cfg.on(Features.GAME_FULLSCREEN)) return;
+                    Object r = p.getResult();
+                    if (!(r instanceof Float) || (Float) r == 0f) return;
+                    Object ar = XposedHelpers.getObjectField(p.thisObject, "mActivityRecord");
+                    String pkg = ar == null ? null : (String) XposedHelpers.getObjectField(ar, "packageName");
+                    if (!isGameSpaceGame(cl, pkg) || ratioPicked(pkg)) return;
+                    p.setResult(0f);
+                    if (loggedGames.add("full:" + pkg)) Lx.i("Games: " + pkg + " full screen (max aspect ratio " + r + " dropped)");
+                } catch (Throwable t) { Lx.e("Games: full screen", t); }
+            }
+        })) n++;
+        else Lx.w("Games: AppCompatAspectRatioPolicy#getMaxAspectRatio not found, full screen for games off");
+
+        // 3. experimental: a longer launch boost for Game Space games, on top of the stock one
+        Class<?> ats = XposedHelpers.findClassIfExists(WM + "ActivityTaskSupervisor", cl);
+        if (H.hookAll(ats, "acquireAppLaunchPerfLock", new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                try {
+                    int idx = Cfg.choice(Features.GAME_LAUNCH_BOOST);
+                    if (idx <= 0 || idx >= Features.LAUNCH_BOOST_MS.length || p.args.length != 1 || p.args[0] == null) return;
+                    String pkg = (String) XposedHelpers.getObjectField(p.args[0], "packageName");
+                    if (!boostWanted(cl, pkg)) return;
+                    Object boost = XposedHelpers.getObjectField(p.thisObject, "mPerfBoost");
+                    if (boost == null) return;
+                    holdBoost(boost, pkg, Features.LAUNCH_BOOST_MS[idx]);
+                } catch (Throwable t) { Lx.e("Games: launch boost", t); }
+            }
+        }) > 0) n++;
+        Lx.i("Games: system_server hooks " + n);
+    }
+
+    /** The games picked for the launch boost ("pkg;pkg"), else every Game Space game. */
+    private static boolean boostWanted(ClassLoader cl, String pkg) {
+        if (pkg == null) return false;
+        String picked = Cfg.str(Features.GAME_LAUNCH_BOOST_PKGS);
+        if (picked != null && !picked.trim().isEmpty()) {
+            for (String e : picked.split(";")) if (pkg.equals(e.trim())) return true;
+            return false;
+        }
+        return isGameSpaceGame(cl, pkg);
+    }
+
+    private static android.os.Handler boostHandler;
+    private static final java.util.Map<String, Long> boostUntil = new java.util.concurrent.ConcurrentHashMap<>();
+    /** One hint at most this long: the perf HAL may cut a single long launch hint short, so long boosts are re-sent. */
+    private static final int BOOST_STEP_MS = 5000;
+
+    /**
+     * VENDOR_HINT_FIRST_LAUNCH_BOOST (0x1081, launch type 1) for {@code ms}: sent in steps of up to 5 s back to back, so
+     * 12 / 15 / 20 s really last that long. A new launch of the same game restarts the window instead of adding a second
+     * chain.
+     */
+    private static void holdBoost(final Object boost, final String pkg, final int ms) {
+        final long until = android.os.SystemClock.uptimeMillis() + ms;
+        Long prev = boostUntil.put(pkg, until);
+        boolean chainRunning = prev != null && prev > android.os.SystemClock.uptimeMillis();
+        synchronized (FrameworkHooks.class) {
+            if (boostHandler == null) {
+                android.os.HandlerThread t = new android.os.HandlerThread("rmtweaks-boost");
+                t.start();
+                boostHandler = new android.os.Handler(t.getLooper());
+            }
+        }
+        if (loggedGames.add("boost:" + pkg + ":" + ms)) Lx.i("Games: " + (ms / 1000) + " s launch boost for " + pkg + " (hint every " + (BOOST_STEP_MS / 1000) + " s)");
+        if (chainRunning) return;
+        boostHandler.post(new Runnable() {
+            @Override public void run() {
+                Long end = boostUntil.get(pkg);
+                long left = end == null ? 0 : end - android.os.SystemClock.uptimeMillis();
+                if (left < 300) { boostUntil.remove(pkg); return; }
+                int step = (int) Math.min(BOOST_STEP_MS, left);
+                try { XposedHelpers.callMethod(boost, "perfHint", 0x1081, pkg, step, 1); }
+                catch (Throwable t) { Lx.e("Games: launch boost hint", t); boostUntil.remove(pkg); return; }
+                boostHandler.postDelayed(this, Math.max(250, step - 200));
+            }
+        });
+    }
+
+    /** A ratio was picked for pkg in Game Space (Settings.Global nubia_gameratio_enable_pkgs, "pkg," entries). */
+    private static boolean ratioPicked(String pkg) {
+        try {
+            if (sys == null) return false;
+            String s = android.provider.Settings.Global.getString(sys.getContentResolver(), "nubia_gameratio_enable_pkgs");
+            if (s == null || s.isEmpty()) return false;
+            for (String e : s.split(",")) if (pkg.equals(e.trim())) return true;
+            return false;
+        } catch (Throwable t) { return false; }
     }
 
     private static void thermalAndPower(ClassLoader cl) {

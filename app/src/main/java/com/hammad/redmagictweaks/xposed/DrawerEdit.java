@@ -536,7 +536,8 @@ final class DrawerEdit {
     /** Global choices + per-folder overrides -> tile style. */
     private DrawerArt.Style styleFor(DrawerOrder.Folder f) {
         return new DrawerArt.Style(f.shape >= 0 ? f.shape : Cfg.choice(DrawerArt.KEY_SHAPE), f.color >= 0 ? f.color : Cfg.choice(DrawerArt.KEY_COLOR),
-                Cfg.choice(DrawerArt.KEY_OPACITY), Cfg.choice(DrawerArt.KEY_GRID));
+                Cfg.choice(DrawerArt.KEY_OPACITY), Cfg.choice(DrawerArt.KEY_GRID)).withOpacityPct(Cfg.hasNum(DrawerArt.KEY_OPACITY) ? Cfg.num(DrawerArt.KEY_OPACITY, -1) : -1)
+                .withCustom(f.color >= 0 ? null : Cfg.color(DrawerArt.KEY_COLOR));
     }
 
     /** Folder cell: composite icon + name + our listeners on the launcher's BubbleTextView. */
@@ -1040,7 +1041,7 @@ final class DrawerEdit {
             boolean noNames = Cfg.on(DrawerArt.KEY_VIEW_NO_NAMES);
             GradientDrawable bg = new GradientDrawable();
             bg.setColor(DrawerArt.viewCardColor(bgChoice));
-            bg.setCornerRadius(dp(DrawerArt.viewRadiusDp(Cfg.choice(DrawerArt.KEY_VIEW_RADIUS))));
+            bg.setCornerRadius(dp(DrawerArt.viewRadiusNow()));
             root.setBackground(bg);
 
             final EditText title = new EditText(dc);
@@ -1057,7 +1058,7 @@ final class DrawerEdit {
             root.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
             GridLayout grid = new GridLayout(dc);
-            int colsN = Math.max(1, Math.min(DrawerArt.viewColumns(Cfg.choice(DrawerArt.KEY_VIEW_COLS)), f.apps.size()));
+            int colsN = Math.max(1, Math.min(DrawerArt.viewColumnsNow(), f.apps.size()));
             grid.setColumnCount(colsN);
             int iconSz = st.iconSize > 0 ? st.iconSize : dp(56);
             for (final String key : new ArrayList<>(f.apps)) {
@@ -1248,7 +1249,7 @@ final class DrawerEdit {
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         GridLayout grid = new GridLayout(dc);
-        int colsN = Math.max(1, DrawerArt.viewColumns(Cfg.choice(DrawerArt.KEY_VIEW_COLS)));
+        int colsN = Math.max(1, DrawerArt.viewColumnsNow());
         grid.setColumnCount(colsN);
         int iconSz = st.iconSize > 0 ? st.iconSize : dp(56);
         for (final String key : new ArrayList<>(f.apps)) {

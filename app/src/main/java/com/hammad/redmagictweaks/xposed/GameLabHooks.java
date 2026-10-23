@@ -15,11 +15,13 @@ final class GameLabHooks {
         H.hook(H.find(Handler.class, "sendMessageDelayed", Message.class, long.class), new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
                 int idx = Cfg.choice(Features.GAME_AI_SPEED);
-                if (idx <= 0 || idx >= Features.AI_SPEED_DIV.length) return;
+                int div = Cfg.hasNum(Features.GAME_AI_SPEED) ? Math.max(1, Math.min(10, Cfg.num(Features.GAME_AI_SPEED, 1)))
+                        : idx > 0 && idx < Features.AI_SPEED_DIV.length ? Features.AI_SPEED_DIV[idx] : 1;
+                if (div <= 1) return;
                 long delay = (Long) p.args[1];
                 if (delay < 20) return;
                 if (!H.calledFromPrefix("cn.nubia.gamelab.toy")) return;
-                long scaled = Math.max(1, delay / Features.AI_SPEED_DIV[idx]);
+                long scaled = Math.max(1, delay / div);
                 p.args[1] = scaled;
             }
         });

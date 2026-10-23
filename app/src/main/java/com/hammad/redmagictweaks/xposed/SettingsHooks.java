@@ -35,7 +35,10 @@ final class SettingsHooks {
         usb(cl);
         adbInstall(cl);
         networkType(cl);
-        try { SettingsRates.install(cl); } catch (Throwable e) { Lx.e("Settings: refresh-rate page", e); }
+        // the 165 Hz choice on Android 15 caused flicker and reboots on global firmware: RM Tweaks only
+        if (!com.hammad.redmagictweaks.FlavorBits.publicBuild() || android.os.Build.VERSION.SDK_INT >= 36) {
+            try { SettingsRates.install(cl); } catch (Throwable e) { Lx.e("Settings: refresh-rate page", e); }
+        }
         Lx.i("Settings: hooks ready");
     }
 

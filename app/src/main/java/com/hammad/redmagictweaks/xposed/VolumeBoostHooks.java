@@ -50,12 +50,15 @@ final class VolumeBoostHooks {
     private static void tick(Context sys) {
         int level = Cfg.choice(FrameworkFeatures.VOLUME_BOOST);
         if (level < 0 || level >= GAIN_MB.length) level = 0;
+        // a typed boost (Features.Num, 0-100 %): gain in millibels = 2000 * log10(1 + p / 100), capped at +100 %
+        int typedPct = Cfg.hasNum(FrameworkFeatures.VOLUME_BOOST) ? Math.max(0, Math.min(100, Cfg.num(FrameworkFeatures.VOLUME_BOOST, 0))) : -1;
+        if (typedPct >= 0) level = typedPct > 0 ? 1 : 0;
         AudioManager am = (AudioManager) sys.getSystemService(Context.AUDIO_SERVICE);
         if (am == null) return;
         boolean atMax = am.getStreamVolume(AudioManager.STREAM_MUSIC) >= am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         Set<Integer> keep = new HashSet<>();
         if (level > 0 && atMax) {
-            int gain = GAIN_MB[level];
+            int gain = typedPct >= 0 ? (int) Math.round(2000 * Math.log10(1 + typedPct / 100.0)) : GAIN_MB[level];
             List<?> configs = am.getActivePlaybackConfigurations();
             for (Object c : configs) {
                 try {

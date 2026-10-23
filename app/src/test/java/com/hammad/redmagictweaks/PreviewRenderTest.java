@@ -70,7 +70,7 @@ public class PreviewRenderTest {
         save(LookPreview.row(ctx, aod, new String[]{LookPreview.AOD}, 150), new File(out, "12-aod-custom.png"));
         String[] keys = {SurfaceFeatures.VOL_ONEUI_WIDTH, SurfaceFeatures.VOL_ONEUI_HEIGHT, SurfaceFeatures.VOL_ONEUI_SHAPE, SurfaceFeatures.VOL_ONEUI_COLOR,
                 SurfaceFeatures.VOL_ONEUI_TRACK, SurfaceFeatures.VOL_ONEUI_ICON, SurfaceFeatures.PWR_ONEUI_SIZE, SurfaceFeatures.PWR_ONEUI_SHAPE,
-                SurfaceFeatures.PWR_ONEUI_COLORS, SurfaceFeatures.PWR_ONEUI_LABELS};
+                SurfaceFeatures.PWR_ONEUI_COLORS, SurfaceFeatures.PWR_ONEUI_LABELS, Features.GAME_VIEW};
         for (String k : keys) {
             Features.Feature f = Features.feature(k);
             Drawable[] cards = new Drawable[f.choices.length];
