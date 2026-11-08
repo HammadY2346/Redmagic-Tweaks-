@@ -1,9 +1,13 @@
 package com.hammad.redmagictweaks.ui;
 
+import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import java.util.Locale;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -32,6 +36,15 @@ public abstract class BaseActivity extends AppCompatActivity {
 
     /** Settings changed from a dialog (a look or layout applied, a reset): the screen redraws. */
     protected abstract void onSettingsChanged();
+
+    @Override protected void attachBaseContext(Context base) {
+        String lang = com.hammad.redmagictweaks.UiPrefs.language(base);
+        Locale locale = new Locale("ru".equals(lang) ? "ru" : "en");
+        Locale.setDefault(locale);
+        Configuration config = new Configuration(base.getResources().getConfiguration());
+        config.setLocale(locale);
+        super.attachBaseContext(base.createConfigurationContext(config));
+    }
 
     @Override public void setContentView(int layoutResID) {
         super.setContentView(layoutResID);
@@ -75,7 +88,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     protected void setupOneUiHome(android.view.Menu menu) {
         MenuItem m = menu.findItem(R.id.action_oneui_home);
         if (m == null) return;
-        m.setVisible(!com.hammad.redmagictweaks.FlavorBits.publicBuild());
+        m.setVisible(true);
         m.setChecked(UiPrefs.oneUiHome(this));
         if (com.hammad.redmagictweaks.WhatsNew.isNew(this, MENU_ONE_UI_HOME, com.hammad.redmagictweaks.WhatsNew.since(MENU_ONE_UI_HOME)))
             m.setTitle(com.hammad.redmagictweaks.WhatsNew.withPill(this, m.getTitle(), "NEW"));
@@ -280,4 +293,8 @@ public abstract class BaseActivity extends AppCompatActivity {
     }
 
     @Override protected void onCreate(Bundle savedInstanceState) { super.onCreate(savedInstanceState); }
+
+    @Override protected void onTitleChanged(CharSequence title, int color) {
+        super.onTitleChanged(com.hammad.redmagictweaks.L.t(this, title), color);
+    }
 }

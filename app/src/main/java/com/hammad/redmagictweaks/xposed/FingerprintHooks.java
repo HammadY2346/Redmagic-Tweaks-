@@ -34,20 +34,40 @@ final class FingerprintHooks {
         "GravitationalField", "BlackHoleGravity", "WaterRipples", "Infinity", "StarLight", "Hexagon", "Ripple"
     };
 
-    private static void gates(ClassLoader cl, String operatorConfig) {
-        Class<?> oc = H.cls(cl, operatorConfig);
+    /** A15 sensor service does not have config.OperatorConfig; the gates live under another name, or only in the picker app. */
+    private static Class<?> operator(ClassLoader cl, String... names) {
+        for (String n : names) {
+            Class<?> c = de.robv.android.xposed.XposedHelpers.findClassIfExists(n, cl);
+            if (c != null) { Lx.i("Fingerprint: gates in " + n); return c; }
+        }
+        Lx.w("Fingerprint: OperatorConfig is not in this build (collaboration styles stay in the newer fingerprints app)");
+        return null;
+    }
+
+    private static void gates(ClassLoader cl, String... names) {
+        Class<?> oc = operator(cl, names);
         if (oc == null) return;
+        java.util.Set<String> hooked = new java.util.HashSet<>();
         for (final String[] g : GATES) {
-            H.hook(H.find(oc, g[0]), new XC_MethodHook() {
+            if (H.hook(H.find(oc, g[0]), new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam p) {
                     if (Cfg.on(g[1]) || Cfg.on(Features.FP_UNLOCK_ALL)) p.setResult(true);
+                }
+            })) hooked.add(g[0]);
+        }
+        // Any other isCustomize* gate on this build (A15 names differ) opens with Unlock all.
+        for (java.lang.reflect.Method m : oc.getDeclaredMethods()) {
+            if (!m.getName().startsWith("isCustomize") || m.getReturnType() != boolean.class || !hooked.add(m.getName())) continue;
+            H.hook(m, new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam p) {
+                    if (Cfg.on(Features.FP_UNLOCK_ALL)) p.setResult(true);
                 }
             });
         }
     }
 
     static void installThemeApp(final ClassLoader cl) {
-        gates(cl, "com.zte.fingerprint.config.OperatorConfig");
+        gates(cl, "com.zte.fingerprint.config.OperatorConfig", "com.zte.fingerprint.theme.OperatorConfig");
         Class<?> proc = H.cls(cl, "com.zte.fingerprint.theme.FingerprintAnimProcess");
         if (proc != null) {
             int n = H.hookAll(proc, "getAllFpAnim", new XC_MethodHook() {
@@ -82,7 +102,9 @@ final class FingerprintHooks {
     }
 
     static void installSensorService(ClassLoader cl) {
-        gates(cl, "com.fingerprint.sensorservice.config.OperatorConfig");
+        gates(cl, "com.fingerprint.sensorservice.config.OperatorConfig",
+                "com.fingerprint.sensorservice.utils.OperatorConfig",
+                "com.fingerprint.sensorservice.OperatorConfig");
         // the renderer also has a reflective LTY check in Utils
         Class<?> u = H.cls(cl, "com.fingerprint.sensorservice.utils.Utils");
         if (u != null) {

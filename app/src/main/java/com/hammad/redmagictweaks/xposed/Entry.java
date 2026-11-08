@@ -15,7 +15,13 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public final class Entry implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     public static String modulePath;
 
-    @Override public void initZygote(StartupParam param) { modulePath = param.modulePath; }
+    @Override public void initZygote(StartupParam param) {
+        modulePath = param.modulePath;
+        // Icon shape + pack must be process-wide (like Settings → Icon shape), not stock-launcher-only.
+        LauncherIcons.installZygote();
+    }
+
+    private static final java.util.Set<String> LOADED = new java.util.HashSet<>();
 
     /** Install one backend; a crash in one never blocks the others in the same process. */
     private static void run(String name, Runnable r) {
@@ -33,6 +39,10 @@ public final class Entry implements IXposedHookLoadPackage, IXposedHookZygoteIni
                 || pkg.equals("com.zte.powersavemode")      // :service
                 || pkg.equals("cn.nubia.touping");          // :lelinkps
         if (!main && !allProcesses) return;
+        // Once per package and process: System UI loads a second copy of its own package (another class loader without
+        // its classes) about a second after start; hooking that one only logged dozens of "class not found" lines
+        // and doubled the framework-level hooks.
+        synchronized (LOADED) { if (!LOADED.add(pkg)) return; }
         Lx.init(main ? pkg : pkg + "[" + lp.processName + "]");
 
         if (Features.PKG.equals(pkg)) {
@@ -75,11 +85,15 @@ public final class Entry implements IXposedHookLoadPackage, IXposedHookZygoteIni
                     run("Launcher", () -> LauncherHooks.install(lp.classLoader));
                     run("Recents", () -> RecentsHooks.install(lp.classLoader));
                     break;
+                case "com.sec.android.app.launcher":
+                    Lx.i("Icons: One UI Home is in scope; icon pack and shape hooks run in this process");
+                    break;
                 case "com.android.systemui":
                     run("Font", () -> FontHooks.install(lp.classLoader));
                     run("Charging", () -> SystemUiHooks.install(lp.classLoader));
                     run("LockScreen", () -> LockHooks.install(lp.classLoader));
                     run("AOD", () -> AodHooks.install(lp.classLoader));
+                    run("AodVideo", () -> AodVideoHooks.install(lp.classLoader));
                     run("OneUiLock", () -> OneUiLockHooks.install(lp.classLoader));
                     run("LockVideo", () -> LockVideoHooks.install(lp.classLoader));
                     run("StatusBar", () -> StatusBarHooks.install(lp.classLoader));

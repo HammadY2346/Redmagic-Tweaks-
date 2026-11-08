@@ -1023,14 +1023,15 @@ final class QsHooks {
         Class<?> volume = H.cls(cl, CC_VOLUME);
         if (volume == null) Lx.w("QS: Control Center volume slider class missing");
         else if (!SeekBar.class.isAssignableFrom(volume)) { Lx.w("QS: CCVolumeSliderView is not a SeekBar, its style is disabled"); volume = null; }
-        if (slider.getSuperclass() != SeekBar.class) { Lx.w("QS: ToggleSeekBar is not a SeekBar, brightness style disabled"); return; }
-        // ToggleSeekBar / CCVolumeSliderView declare no onDraw of their own: this lands on AbsSeekBar.onDraw, gated by sliderName.
-        if (hookUp(slider, "onDraw", new XC_MethodHook() {
+        if (!SeekBar.class.isAssignableFrom(slider)) { Lx.w("QS: ToggleSeekBar is not a SeekBar, brightness style disabled"); return; }
+        // A15's CC slider draws itself and does not share ToggleSeekBar's onDraw. Hook each slider class.
+        XC_MethodHook draw = new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
-                if (!main()) return;
-                String name = p.thisObject.getClass().getName();
+                if (!main() || !(p.thisObject instanceof SeekBar)) return;
+                SeekBar bar = (SeekBar) p.thisObject;
+                String name = bar.getClass().getName();
                 if (!sliderName(name) || (styleFor(name) == 0 && s().sliderColor == 0)) return;
-                try { trackSlider((SeekBar) p.thisObject); } catch (Throwable t) { Lx.e("QS: brightness track", t); }
+                try { trackSlider(bar); } catch (Throwable t) { Lx.e("QS: brightness track", t); }
             }
             @Override protected void afterHookedMethod(MethodHookParam p) {
                 // One UI: the small sun inside the start of the track, over the finished track + fill (no thumb on this firmware).
@@ -1054,8 +1055,14 @@ final class QsHooks {
                     QsArt.paintBrightnessGlyph((Canvas) p.args[0], track, fraction, dark(view));
                 } catch (Throwable t) { Lx.e("QS: brightness glyph", t); }
             }
-        }) == 0) { Lx.w("QS: slider onDraw not found, brightness style disabled"); return; }
-        Lx.i("QS: brightness hooks ready");
+        };
+        int hooked = hookUp(slider, "onDraw", draw);
+        // Only hook a slider that draws itself. Otherwise hookUp lands on the same AbsSeekBar.onDraw twice.
+        Class<?> cc = H.cls(cl, CC_SLIDER);
+        if (volume != null && declares(volume, "onDraw")) hooked += hookUp(volume, "onDraw", draw);
+        if (cc != null && cc != slider && declares(cc, "onDraw")) hooked += hookUp(cc, "onDraw", draw);
+        if (hooked == 0) { Lx.w("QS: slider onDraw not found, brightness style disabled"); return; }
+        Lx.i("QS: brightness hooks ready (" + hooked + " onDraw)");
     }
     /** The Control Center slider frame also holds the auto-brightness toggle (CheckBoxZTE) at the start of the track. */
     private static boolean hasVisibleIcon(SeekBar slider) {
@@ -1083,19 +1090,68 @@ final class QsHooks {
         }
         for (int depth = 0; depth < 8 && view != null; depth++, view = parentView(view)) {
             String name = view.getClass().getName();
-            boolean expected = name.equals(SLIDER_OWNER) || (slider.getClass().getName().equals(CC_SLIDER) && name.equals(CC_SLIDER_OWNER));
-            if (expected) return XposedHelpers.callMethod(view, "getSlider") == slider;
+            boolean expected = name.equals(SLIDER_OWNER) || name.equals(CC_SLIDER_OWNER) || name.contains("Brightness") || name.contains("ToggleSlider");
+            if (!expected) continue;
+            try { Object s = XposedHelpers.callMethod(view, "getSlider"); if (s == slider) return true; }
+            catch (Throwable ignored) { return true; }   // A15 owner has no getSlider(); the class name is enough
         }
-        return false;
+        // A15 often keeps the bar as ToggleSeekBar / CCToggleSeekBar without the A16 owner class.
+        return sliderName(slider.getClass().getName());
+    }
+    private static Drawable peel(Drawable d) {
+        for (int i = 0; i < 4 && d != null; i++) {
+            Drawable inner = null;
+            try { inner = (Drawable) XposedHelpers.callMethod(d, "getDrawable"); } catch (Throwable ignored) { }
+            if (inner == null || inner == d) break;
+            d = inner;
+        }
+        return d;
     }
     private static GradientDrawable[] sliderLayers(Drawable root) {
-        if (!(root instanceof LayerDrawable) || ((LayerDrawable) root).getNumberOfLayers() != 2) return null;
+        root = peel(root);
+        if (!(root instanceof LayerDrawable)) return null;
         LayerDrawable layer = (LayerDrawable) root;
-        Drawable background = layer.findDrawableByLayerId(android.R.id.background), progress = layer.findDrawableByLayerId(android.R.id.progress);
-        if (!(background instanceof GradientDrawable) || !(progress instanceof ClipDrawable) || !(((ClipDrawable) progress).getDrawable() instanceof GradientDrawable)) return null;
-        GradientDrawable track = (GradientDrawable) background, fill = (GradientDrawable) ((ClipDrawable) progress).getDrawable();
+        Drawable background = peel(layer.findDrawableByLayerId(android.R.id.background));
+        Drawable progress = peel(layer.findDrawableByLayerId(android.R.id.progress));
+        if (background == null || progress == null) {
+            // A15 sometimes omits the layer ids: first rectangle is the track, the clip is the fill.
+            for (int i = 0; i < layer.getNumberOfLayers(); i++) {
+                Drawable leaf = peel(layer.getDrawable(i));
+                if (background == null && leaf instanceof GradientDrawable) background = leaf;
+                else if (progress == null && (leaf instanceof ClipDrawable || leaf instanceof GradientDrawable)) progress = leaf;
+            }
+        }
+        progress = peel(progress);
+        if (!(background instanceof GradientDrawable)) return null;
+        GradientDrawable fill = progress instanceof GradientDrawable ? (GradientDrawable) progress
+                : progress instanceof ClipDrawable && ((ClipDrawable) progress).getDrawable() instanceof GradientDrawable
+                ? (GradientDrawable) ((ClipDrawable) progress).getDrawable() : null;
+        if (fill == null) return null;
+        GradientDrawable track = (GradientDrawable) background;
         if (track == fill || track.getShape() != GradientDrawable.RECTANGLE || fill.getShape() != GradientDrawable.RECTANGLE) return null;
         return new GradientDrawable[]{track, fill};
+    }
+    private static boolean declares(Class<?> c, String name) {
+        for (Method m : c.getDeclaredMethods()) if (m.getName().equals(name)) return true;
+        return false;
+    }
+    private static boolean drawableLogged;
+    private static void logDrawableOnce(SeekBar slider, Drawable root) {
+        if (drawableLogged) return;
+        drawableLogged = true;
+        Lx.w("QS: brightness style has no track/fill on " + slider.getClass().getSimpleName() + ": " + describeDrawable(root));
+    }
+    private static String describeDrawable(Drawable d) {
+        if (d == null) return "null";
+        if (d instanceof LayerDrawable) {
+            LayerDrawable l = (LayerDrawable) d;
+            StringBuilder b = new StringBuilder("Layer(");
+            for (int i = 0; i < l.getNumberOfLayers(); i++) b.append(i == 0 ? "" : ",").append(describeDrawable(l.getDrawable(i)));
+            return b.append(')').toString();
+        }
+        Drawable inner = null;
+        try { inner = (Drawable) d.getClass().getMethod("getDrawable").invoke(d); } catch (Throwable ignored) { }
+        return inner == null || inner == d ? d.getClass().getSimpleName() : d.getClass().getSimpleName() + "(" + describeDrawable(inner) + ")";
     }
     private static boolean sliderEligible(SliderEntry entry, GradientDrawable drawable) {
         if (entry == null) return false;
@@ -1112,7 +1168,7 @@ final class QsHooks {
         leaves.entrySet().removeIf(e -> e.getValue().slider.get() == null || e.getValue().slider.get() == slider);
         if (!sliderOwned(slider)) return;
         GradientDrawable[] parts = sliderLayers(root);
-        if (parts == null) { Lx.w("QS: brightness progress drawable is " + (root == null ? "null" : root.getClass().getSimpleName()) + ", style unavailable for " + slider.getClass().getSimpleName()); return; }
+        if (parts == null) { logDrawableOnce(slider, root); return; }
         SliderEntry entry = new SliderEntry(slider, root);
         for (GradientDrawable part : parts) { SliderEntry other = leaves.get(part); if (other != null && other.slider.get() != slider) { Lx.w("QS: shared brightness drawable, style skipped"); return; } leaves.put(part, entry); }
         slider.invalidate();

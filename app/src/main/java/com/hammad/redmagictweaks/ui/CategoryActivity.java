@@ -90,6 +90,39 @@ public class CategoryActivity extends BaseActivity {
         if (ok) Pending.add(this, Catalog.item(CosmeticsFeatures.COS_CLOCK_FONT));
         refresh();
     });
+    private final ActivityResultLauncher<String[]> pickIconZip = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+        if (uri == null) return;
+        busy("Importing icons…", () -> {
+            String err = com.hammad.redmagictweaks.IconZip.importFrom(this, uri);
+            runOnUiThread(() -> {
+                if (err != null) { new MaterialAlertDialogBuilder(this).setTitle("Import failed").setMessage(err).setPositiveButton(android.R.string.ok, null).show(); return; }
+                refresh();
+                IconPackPicker.restartLauncher(this, com.hammad.redmagictweaks.IconZip.label(this));
+            });
+        });
+    });
+    private final ActivityResultLauncher<String[]> pickAodVideo = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+        if (uri == null) return;
+        busy("Importing…", () -> {
+            String err = com.hammad.redmagictweaks.AodVideo.importFrom(this, uri);
+            runOnUiThread(() -> {
+                if (err != null) { new MaterialAlertDialogBuilder(this).setTitle("Import failed").setMessage(err).setPositiveButton(android.R.string.ok, null).show(); return; }
+                Toast.makeText(this, "AOD video set: it plays the next time the AOD shows", Toast.LENGTH_LONG).show();
+                refresh();
+            });
+        });
+    });
+
+    /** AOD video row: pick one, or change / remove the one that is set. */
+    private void aodVideo() {
+        if (com.hammad.redmagictweaks.AodVideo.meta(this) == null) { pickAodVideo.launch(new String[]{"video/*"}); return; }
+        new MaterialAlertDialogBuilder(this).setTitle("AOD video")
+                .setItems(new String[]{"Pick another video", "Remove the video"}, (d, which) -> {
+                    if (which == 0) pickAodVideo.launch(new String[]{"video/*"});
+                    else { com.hammad.redmagictweaks.AodVideo.remove(this); refresh(); }
+                }).show();
+    }
+
     private final ActivityResultLauncher<String[]> pickBootZip = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
         if (uri == null) return;
         busy("Importing…", () -> {
@@ -284,12 +317,13 @@ public class CategoryActivity extends BaseActivity {
         if (BootAnimFeatures.BOOTANIM_IMPORT.equals(f.key)) return BootAnim.customFile(this).isFile() ? "Imported" : "Pick a .zip";
         if (BootAnimFeatures.BOOTANIM_STATUS.equals(f.key)) return "Check";
         if (com.hammad.redmagictweaks.LockFeatures.VIDEO.equals(f.key)) return com.hammad.redmagictweaks.LockVideo.label(this);
+        if (com.hammad.redmagictweaks.AodFeatures.VIDEO.equals(f.key)) return com.hammad.redmagictweaks.AodVideo.label(this);
         if (f.key.startsWith("preset_")) return f.key.startsWith("preset_one_ui") ? "Preview and apply" : "Preview and reset";
         if (Catalog.SAVED_LAYOUTS.equals(f.key)) { int n = com.hammad.redmagictweaks.LayoutStore.all(this).size(); return n == 0 ? "None yet" : n + " saved"; }
         if (Features.LAUNCHER_ICON_PACK.equals(f.key)) return IconPackPicker.label(this);
         if (Features.GAME_VIEW_GAMES.equals(f.key)) return GameViewPicker.label(this);
         if (Features.GAME_LAUNCH_BOOST_GAMES.equals(f.key)) return GameViewPicker.boostLabel(this);
-        return FlavorBits.actionLabel(f.key);
+        return FlavorBits.actionLabel(this, f.key);
     }
 
     private void act(Catalog.Item it) {
@@ -299,15 +333,17 @@ public class CategoryActivity extends BaseActivity {
         else if (BootAnimFeatures.BOOTANIM_IMPORT.equals(f.key)) pickBootZip.launch(new String[]{"application/zip", "application/x-zip-compressed", "application/octet-stream"});
         else if (BootAnimFeatures.BOOTANIM_STATUS.equals(f.key)) bootAnimStatus();
         else if (com.hammad.redmagictweaks.LockFeatures.VIDEO.equals(f.key)) startActivity(new Intent(this, LockVideoActivity.class));
+        else if (com.hammad.redmagictweaks.AodFeatures.VIDEO.equals(f.key)) aodVideo();
         else if (Catalog.SAVED_LAYOUTS.equals(f.key)) showLayouts();
         else if (f.key.startsWith("preset_")) {
             boolean apply = f.key.startsWith("preset_one_ui"), launcher = f.key.endsWith("_launcher");
             Object[][] set = launcher ? (apply ? Presets.ONE_UI_LAUNCHER : Presets.STOCK_LAUNCHER) : (apply ? Presets.ONE_UI : Presets.STOCK);
             showPreset(f.title, set, launcher);
-        } else if (Features.LAUNCHER_ICON_PACK.equals(f.key)) IconPackPicker.show(this, this::refresh);
+        } else if (Features.LAUNCHER_ICON_PACK.equals(f.key)) IconPackPicker.show(this, this::refresh,
+                () -> pickIconZip.launch(new String[]{"application/zip", "application/x-zip-compressed", "application/octet-stream", "*/*"}));
         else if (Features.GAME_VIEW_GAMES.equals(f.key)) GameViewPicker.show(this, this::refresh);
         else if (Features.GAME_LAUNCH_BOOST_GAMES.equals(f.key)) GameViewPicker.showBoost(this, this::refresh);
-        else FlavorBits.runAction(this, f.key);
+        else FlavorBits.runAction(this, f.key, this::refresh);
     }
 
     /** What it does, what it needs, and Reset to stock. */
@@ -359,6 +395,7 @@ public class CategoryActivity extends BaseActivity {
             Catalog.setChoice(this, it, value);
             Pending.add(this, it);
             if (BootAnimFeatures.BOOTANIM.equals(it.key())) applyBootAnim();
+            if (com.hammad.redmagictweaks.Features.LAUNCHER_ICON_SHAPE.equals(it.key())) com.hammad.redmagictweaks.IconMask.apply(this);
             thumbs.remove(it.key());
             refresh();
         }

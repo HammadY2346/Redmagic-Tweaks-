@@ -24,7 +24,16 @@ def fetch(e):
     path = CACHE / e["file"]
     if not path.exists():
         url = "https://raw.githubusercontent.com/%s/%s/%s/%s" % (CAT["repository"], CAT["commit"], CAT["directory"], e["file"])
-        with urlopen(url, timeout=60) as r: data = r.read(e["bytes"] + 1)
+        # raw.githubusercontent.com sometimes stalls mid-download on CI: retry a few times with a longer timeout
+        import time
+        for attempt in range(5):
+            try:
+                with urlopen(url, timeout=180) as r: data = r.read(e["bytes"] + 1)
+                if len(data) == e["bytes"]: break
+            except Exception as ex:
+                if attempt == 4: raise
+                print("bootanimation %s: attempt %d failed (%s), retrying" % (e["file"], attempt + 1, ex))
+            time.sleep(5 * (attempt + 1))
         path.write_bytes(data)
     data = path.read_bytes()
     if len(data) != e["bytes"] or hashlib.sha256(data).hexdigest() != e["sha256"]:

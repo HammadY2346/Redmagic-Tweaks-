@@ -215,13 +215,16 @@ final class SensorFingerprintHooks {
                 } catch (Throwable t) { Lx.e("fingerprint: icon place", t); }
             }
         };
+        // A15 (10.5.x) keeps setSensorViewIconForRedMagic and drops the updateSensorViewIcon* names.
         int n = 0;
-        n += H.hookAll(sv, "setSensorViewIconForRedMagic", place);
-        n += H.hookAll(sv, "updateSensorViewIconForStyle", place);
-        n += H.hookAll(sv, "updateSensorViewIcon", place);
-        n += H.hookAll(sv, "setSensorViewIconForRedMagic", after);
-        n += H.hookAll(sv, "updateSensorViewIconForStyle", after);
-        n += H.hookAll(sv, "updateSensorViewIcon", after);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (java.lang.reflect.Method m : sv.getDeclaredMethods()) {
+            String name = m.getName();
+            if (!name.toLowerCase(java.util.Locale.ROOT).contains("icon") || !seen.add(name)) continue;
+            if (H.hook(m, place)) n++;
+            if (H.hook(m, after)) n++;
+            Lx.i("Fingerprint: icon setter " + name);
+        }
         Lx.i("Fingerprint: idle icon hooks ready (" + n + " setters)");
     }
 

@@ -69,7 +69,9 @@ public final class Lx {
                 synchronized (queue) { line = queue.peekFirst(); }
                 if (line == null) { retries = 0; break; }
                 try {
-                    c.getContentResolver().call(LOG_URI, "log", line, null);
+                    android.os.Bundle who = new android.os.Bundle();
+                    who.putString("tag", tag);   // the provider names system_server by uid otherwise (shared uid 1000)
+                    c.getContentResolver().call(LOG_URI, "log", line, who);
                     synchronized (queue) { queue.pollFirst(); }
                 } catch (Throwable t) {
                     // module app not reachable yet (early boot / user locked) — keep the line, retry later

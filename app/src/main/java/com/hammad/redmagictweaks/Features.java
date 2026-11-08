@@ -72,6 +72,7 @@ public final class Features {
     public static final String SAFE_MODE = "safe_mode";
     public static final String GAME_UNFREEZE = "game_unfreeze";
     public static final String GAME_MACRO_ANY = "game_macro_any";
+    public static final String GAME_ALL_PLUGINS = "game_all_plugins";
     public static final String GAME_COMBO_SPEED = "game_combo_speed";
     public static final String GAME_TGK_ALL = "game_tgk_link_all";
     public static final String GAME_SR_COEXIST = "game_sr_coexist";
@@ -86,9 +87,10 @@ public final class Features {
     /** Panel refresh rate while frame interpolation is on (system_server, ScreenRefreshRateController.getInterpFps). */
     public static final String GAME_GFRC_TARGET = "game_gfrc_target";
     public static final String[] GFRC_TARGETS = {"Stock (Super 120 Hz, Ultra the panel's top rate)", "90 Hz", "120 Hz", "144 Hz", "The panel's top rate (165 Hz with the DTBO mod)",
-            "Always the maximum: Super and Ultra at the panel's top rate"};
-    /** Hz per GFRC_TARGETS choice; -1 and -2 = the panel's highest rate (-2 was "Super run as Ultra", dropped: Ultra only takes 40..57 fps games). */
-    public static final int[] GFRC_TARGET_HZ = {0, 90, 120, 144, -1, -2};
+            "Always the maximum: Super and Ultra at the panel's top rate",
+            "Match the interpolation: Super 120 Hz, Ultra 144 Hz"};
+    /** Hz per GFRC_TARGETS choice; -1 and -2 = the panel's highest rate; -3 = by level (Super 120, Ultra 144), held exactly. */
+    public static final int[] GFRC_TARGET_HZ = {0, 90, 120, 144, -1, -2, -3};
     /** Game Space games without a ratio picked in Game Space run full screen (system_server, no max aspect ratio). */
     public static final String GAME_FULLSCREEN = "game_fullscreen";
     /**
@@ -144,6 +146,7 @@ public final class Features {
     public static final String LAUNCHER_ICON_PACK = "launcher_icon_pack";
     public static final String LAUNCHER_ICON_SHAPE = "launcher_icon_shape";
     public static final String LAUNCHER_LABEL_SIZE = "launcher_label_size";
+    public static final String LAUNCHER_ICON_SIZE = "launcher_icon_size";
     public static final String LAUNCHER_HIDE_LABELS = "launcher_hide_labels";
     public static final String LAUNCHER_FOLDER_COLS = "launcher_folder_cols";
     public static final String LAUNCHER_FOLDER_ROWS = "launcher_folder_rows";
@@ -174,14 +177,30 @@ public final class Features {
         {"Classic Mifavor wireless", "table", "WireLessDrawable"},
         {"Game-mode bottom glow", "table", "Nubia_Game_Bottom_Drawable"},
         {"Luo Tianyi collab (if shipped)", "file", "ip_lty_charge_0%s.webp|ip_lty_fast_charge_0%s.webp"},
-        {"CAMELLYA / Wuthering Waves collab (if shipped)", "file", "redmagic_charge_0%s.webp|redmagic_fast_charge_0%s.webp"},
+        {"Green crystal cube (firmware files, if shipped)", "file", "redmagic_charge_0%s.webp|redmagic_fast_charge_0%s.webp"},
         {"GOLDEN SAGA collab (if shipped)", "file", "redmagic_pb_charge_0%s.webp|redmagic_pb_fast_charge_0%s.webp"},
         {"GOLDEN SAGA wireless (if shipped)", "file", "redmagic_wireless_pb_charge_0%s.webp|redmagic_wireless_pb_fast_charge_0%s.webp"},
         {(com.hammad.redmagictweaks.BuildConfig.APP_NAME + " · Neon Ring"), "asset", "neon_ring"},
         {(com.hammad.redmagictweaks.BuildConfig.APP_NAME + " · Lightning Core"), "asset", "lightning_core"},
         {(com.hammad.redmagictweaks.BuildConfig.APP_NAME + " · Plasma Wave"), "asset", "plasma_wave"},
         {(com.hammad.redmagictweaks.BuildConfig.APP_NAME + " · Ember Pulse"), "asset", "ember_pulse"},
+        {"Green crystal cube · fast charge (power-off charger art)", "asset", "cn_fast_charge"},
         {"Custom frames (imported below)", "custom", "custom"},
+        // added after "Custom frames": the setting is stored by index, so new sets only go at the end
+        {"Wuthering Waves CAMELLYA edition (CN) · pink lotus", "asset", "cn_pink_charge"},
+        {"Wuthering Waves CAMELLYA edition (CN) · pink lotus fast charge", "asset", "cn_pink_fast_charge"},
+        // CN /system/etc/res/images/ztecharger (power-off charging art), black keyed to transparency
+        {"RedMagic CN · blue ring", "asset", "cn_ring_normal"},
+        {"RedMagic CN · blue ring fast charge", "asset", "cn_ring_fast"},
+        // Black Myth: Wukong golden staff, Global 15 lock-screen frames (ip_mk_part_one / two / three), one entry per stage
+        {"Black Myth: Wukong · golden staff (to 89 %)", "asset", "cn_staff_normal"},
+        {"Black Myth: Wukong · golden staff (90 to 100 %)", "asset", "cn_staff_normal_full"},
+        {"Black Myth: Wukong · golden staff fast charge (to 89 %)", "asset", "cn_staff_fast"},
+        {"Black Myth: Wukong · golden staff fast charge (90 to 100 %)", "asset", "cn_staff_fast_full"},
+        {"Black Myth: Wukong · golden staff turning into the rod (at 90 %)", "asset", "cn_staff_normal_mid"},
+        {"Black Myth: Wukong · golden staff fast charge turning into the rod (at 90 %)", "asset", "cn_staff_fast_mid"},
+        // follows the applied theme: collaboration themes get their edition's set, everything else stock (xposed/SystemUiHooks)
+        {"Follow the theme (CAMELLYA Chun → pink lotus, Black Myth Victorious Fighting Buddha → golden staff)", "theme", "cn_theme"},
     };
     public static final String[] CHARGE_SETS = labels(CHARGE_SET_DEFS);
 
@@ -189,53 +208,10 @@ public final class Features {
         com.hammad.redmagictweaks.xposed.DrawerArt.registerPreviews();
         Previews.register(GAME_VIEW, GameViewArt::preview, "Estimate for PUBG-style games · applies the next time the game opens, no reboot needed");
         // Picture previews for the charging sets: a mid-animation frame of System UI's own tables / firmware
-        // files, the first frame of our asset sets, the first imported frame for Custom.
-        Previews.register(CHARGE_SET, (ctx, i) -> {
-            if (i <= 0 || i >= CHARGE_SET_DEFS.length) return null;
-            String kind = CHARGE_SET_DEFS[i][1], arg = CHARGE_SET_DEFS[i][2];
-            try {
-                switch (kind) {
-                    case "asset": return Previews.asset(ctx, Frames.assetPath(ctx, arg, Math.min(12, Math.max(0, Frames.assetCount(ctx, arg) - 1))));
-                    case "custom": return Previews.file(Frames.frame(ctx, Math.min(12, Math.max(0, Frames.count(ctx) - 1))));
-                    case "table": {
-                        android.content.res.Resources r = ctx.getPackageManager().getResourcesForApplication("com.android.systemui");
-                        int[] ids = ChargeTables.ids(arg);
-                        if (ids == null || ids.length == 0) return null;
-                        return r.getDrawable(ids[Math.min(24, ids.length - 1)], r.newTheme());
-                    }
-                    case "file": {
-                        String pat = arg.split("\\|")[0];
-                        java.io.File f = new java.io.File("/system/etc/custom_config/app/systemUI/charge/" + String.format(pat, "24"));
-                        if (!f.isFile()) f = new java.io.File("/system/etc/custom_config/app/systemUI/charge/" + String.format(pat, "12"));
-                        return Previews.file(f);
-                    }
-                    case "flag": {
-                        android.content.res.Resources r = ctx.getPackageManager().getResourcesForApplication("com.android.systemui");
-                        int[] ids = ChargeTables.ids("IP_MX_Part_Two_Drawable");
-                        return ids == null || ids.length == 0 ? null : r.getDrawable(ids[Math.min(12, ids.length - 1)], r.newTheme());
-                    }
-                    default: return null;
-                }
-            } catch (Throwable t) { return null; }
-        }, "Tap a set to preview it · plays on the lock screen when charging");
-        Previews.registerFrames(CHARGE_SET, (ctx, i) -> {
-            if (i <= 0 || i >= CHARGE_SET_DEFS.length) return null;
-            String kind = CHARGE_SET_DEFS[i][1], arg = CHARGE_SET_DEFS[i][2];
-            try {
-                java.util.List<android.graphics.drawable.Drawable> out = new java.util.ArrayList<>();
-                if ("asset".equals(kind)) { int n = Frames.assetCount(ctx, arg); for (int k = 0; k < n; k++) out.add(Previews.asset(ctx, Frames.assetPath(ctx, arg, k))); }
-                else if ("custom".equals(kind)) { int n = Math.min(120, Frames.count(ctx)); for (int k = 0; k < n; k++) out.add(Previews.file(Frames.frame(ctx, k))); }
-                else if ("table".equals(kind) || "flag".equals(kind)) {
-                    android.content.res.Resources r = ctx.getPackageManager().getResourcesForApplication("com.android.systemui");
-                    int[] ids = ChargeTables.ids("flag".equals(kind) ? "IP_MX_Part_Two_Drawable" : arg);
-                    if (ids != null) for (int id : ids) out.add(r.getDrawable(id, r.newTheme()));
-                } else if ("file".equals(kind)) {
-                    String pat = arg.split("\\|")[0];
-                    for (int k = 1; k <= 120; k++) { java.io.File f = new java.io.File("/system/etc/custom_config/app/systemUI/charge/" + String.format(pat, k < 10 ? "0" + k : String.valueOf(k))); if (!f.isFile()) break; out.add(Previews.file(f)); }
-                }
-                return out.isEmpty() ? null : out.toArray(new android.graphics.drawable.Drawable[0]);
-            } catch (Throwable t) { return null; }
-        });
+        // files, the middle frame of our asset sets, an early imported frame for Custom.
+        // Picture previews for the charging sets (ChargeSets: System UI's frames by resource name, firmware files, our assets).
+        Previews.register(CHARGE_SET, ChargeSets::still, "Tap a set to preview it · plays on the lock screen when charging");
+        Previews.registerFrames(CHARGE_SET, ChargeSets::frames);
     }
 
     /** Theme variants: {label, theme-resource-feature, variant-id}. Index 0 = off. */
@@ -260,6 +236,8 @@ public final class Features {
     public static final String[] ICON_SHAPES = {"Stock (theme shape)", "Circle", "Squircle", "Rounded square", "Square", "Teardrop", "One UI", "Diamond"};
     /** Index = xposed.LauncherIcons.LABEL_SCALE. */
     public static final String[] LABEL_SIZES = {"Stock", "80 %", "90 %", "110 %", "120 %", "130 %"};
+    public static final String[] ICON_SIZES = {"Stock", "80 %", "90 %", "110 %", "120 %"};
+    public static final float[] ICON_SIZE_SCALE = {1f, 0.8f, 0.9f, 1.1f, 1.2f};
     public static final String[] FOLDER_COLS = {"Stock", "3", "4", "5"};
     public static final String[] FOLDER_ROWS = {"Stock", "3", "4", "5", "6"};
 
@@ -270,6 +248,7 @@ public final class Features {
         R.drawable.ic_game,
         new String[]{"cn.nubia.gameassist", "cn.nubia.gamelauncher", "cn.nubia.gamehelpmodule", "cn.nubia.gamelab", "cn.nubia.gamehighlights"},
         new Feature(GAME_UNFREEZE, "Game Assist in every app", "Shoulder keys, plugins and the in-game panel work in any app, not just whitelisted games. Restart Game Assist after changing."),
+        new Feature(GAME_ALL_PLUGINS, "Every plugin in every game", "Game Assist keeps a list of which plugins each game gets. This answers yes for every plugin in every game; each plugin keeps its own on/off switch. Some are made for particular games (combat power, predictions, AI detection) and may show but do nothing elsewhere. Also part of \"Game Assist in every app\". Restart Game Assist after changing."),
         new Feature(GAME_MACRO_ANY, "Macros and combos in any game", "Removes the macro / one-key combo blacklist."),
         new Feature(GAME_COMBO_SPEED, "Combo playback speed control", "Enables the hidden playback-speed option for recorded combos."),
         new Feature(GAME_TGK_ALL, "Trigger-key linkage everywhere", "Shoulder-trigger key mapping is never disabled per game."),
@@ -281,7 +260,7 @@ public final class Features {
         new Feature(GAME_RECORD_FREE, "Record Red Magic Moments anywhere", "Removes the abnormal-state abort so recording works in any mode."),
         new Feature(GAME_ACTIVE_KEEP, "Remember Active Mode per game", "Game Assist turns Active Mode (background-active / freeform) off every time a game is launched for the first time after boot. With this on, only your own tap on the tile changes it and the state is kept per game. Restart Game Assist."),
         new Feature(GAME_GFRC_ALL, "Frame interpolation for every game", "Game Space's Super Resolution panel offers frame interpolation (the Super and Ultra frame rates) and upscaling only for the games on Qualcomm's list; for any other game both stay at Original. This unlocks them for every game you added to Game Space. Games outside the list may show ghosting or small artifacts and run warmer. Applies the next time a game starts."),
-        new Feature(GAME_GFRC_TARGET, "Refresh rate during frame interpolation", "How fast the screen runs while frame interpolation is on. Stock runs Super at 120 Hz, so a Super game never shows more than 120 fps, and Ultra at the panel's top rate. Qualcomm's interpolation (gppservice) adds one generated frame after every game frame, so the screen shows twice the game's own frame rate, up to the rate picked here: a game at 60 fps shows 120, a game at 82 fps or more fills 165 Hz. \"Always the maximum\" keeps the screen at its top rate for Super and Ultra. While interpolation is on, nothing else can drop the screen below the picked rate. The log shows an \"interpolation check\" line a few seconds after it turns on. If the screen runs faster than the frames the game and interpolation produce, motion can judder, so try it per game. Applies the next time interpolation turns on.",
+        new Feature(GAME_GFRC_TARGET, "Refresh rate during frame interpolation", "How fast the screen runs while frame interpolation is on. Stock runs Super at 120 Hz, so a Super game never shows more than 120 fps, and Ultra at the panel's top rate. Qualcomm's interpolation (gppservice) adds one generated frame after every game frame, so the screen shows twice the game's own frame rate, up to the rate picked here: a game at 60 fps shows 120, a game at 82 fps or more fills 165 Hz. \"Always the maximum\" keeps the screen at its top rate for Super and Ultra. \"Match the interpolation\" runs the screen only as fast as the frames: 120 Hz for Super (60 fps doubled) and 144 Hz for Ultra (60 fps made into 144 with the Enable 144 via Frame Interpolation module), and nothing raises it to 165 while interpolation is on. While interpolation is on, nothing else can drop the screen below the picked rate. The log shows an \"interpolation check\" line a few seconds after it turns on. If the screen runs faster than the frames the game and interpolation produce, motion can judder, so try it per game. Applies the next time interpolation turns on.",
                 Type.CHOICE, GFRC_TARGETS, 0),
         new Feature(GAME_FULLSCREEN, "Full screen for every game", "Games made for 16:9 leave black bars at the sides. This asks the game to draw at the phone's own shape instead: no bars, and most games show a wider view. Games you picked a ratio for in Game Space keep that ratio (Game view below overrides it, and can also stretch a 4:3 or 16:9 picture to the full screen). Applies the next time the game starts (force-stop it first). Some older games draw their own bars or put buttons under the camera hole."),
         new Feature(GAME_VIEW, "Game view", "How Game Space games fill the screen. Full screen: the game draws at the phone's own shape, no bars, even when you picked a ratio in Game Space. iPad view and the other stretched views: the game draws a narrower picture (4:3 shows the most around you in games like PUBG) and the screen stretches it to the full width, so nothing is cut off and there are no bars, but everything looks wider. While a stretched game is in front the whole screen uses that shape (the Game Space sidebar and notifications too); it goes back the moment you leave the game, turn the screen off or the game closes, and never stays after a restart. Per-game choices below win over this one. Applies the next time the game opens (swipe it away from recents first); no reboot needed, only installing an RM Tweaks update needs one.",
@@ -331,8 +310,9 @@ public final class Features {
         new Feature(LAUNCHER_HOTSEAT_TEXT, "Show labels in dock", ""),
         new Feature(LAUNCHER_TWO_LINE, "Two-line app labels", ""),
         new Feature(LAUNCHER_CIRCLE, "Infinite home screen scrolling", "Last page wraps around to the first."),
-        new Feature(LAUNCHER_ICON_PACK, "Icon pack", "Uses an installed icon pack (any ADW / Nova / Apex style pack from the Play Store) for the app icons on the home screen, in the app drawer and in folders. Apps the pack has no icon for are drawn on the pack's own background when it has one. The launcher restarts by itself after you pick one.", Type.ACTION, null, 0),
-        new Feature(LAUNCHER_ICON_SHAPE, "App icon shape", "Shape of the app icons (circle, squircle, rounded square, square, teardrop, One UI, diamond). Works on apps with adaptive icons; a theme or icon pack with fixed icons keeps its own shape. Restart the launcher.", Type.CHOICE, ICON_SHAPES, 0),
+        new Feature(LAUNCHER_ICON_PACK, "Icon pack", "Uses an installed icon pack (any ADW / Nova / Apex style pack from the Play Store) for app icons on the home screen, in the app drawer and in folders — on the stock launcher and on third-party launchers that load icons through Android's launcher API. Apps the pack has no icon for are drawn on the pack's own background when it has one. Home apps restart by themselves after you pick one.", Type.ACTION, null, 0),
+        new Feature(LAUNCHER_ICON_SHAPE, "App icon shape", "Shape of the app icons (circle, squircle, rounded square, square, teardrop, One UI, diamond), applied system-wide like Settings → Icon shape so the stock launcher and third-party launchers all pick it up. Works on apps with adaptive icons; a theme or icon pack with fixed icons keeps its own shape. Restart the home app.", Type.CHOICE, ICON_SHAPES, 0),
+        new Feature(LAUNCHER_ICON_SIZE, "App icon size", "Size of the app icons on the home screen, in the dock, in folders and in the app drawer, compared with the launcher's default. The grid stays the same, so at 120 % big icons can sit close to their labels. Restart the launcher.", Type.CHOICE, ICON_SIZES, 0),
         new Feature(LAUNCHER_LABEL_SIZE, "App label size", "Size of the app names under the icons on the home screen, in the dock and in folders. Restart the launcher.", Type.CHOICE, LABEL_SIZES, 0),
         new Feature(LAUNCHER_HIDE_LABELS, "Hide app labels", "Only icons on the home screen, no app names. Restart the launcher."),
         new Feature(LAUNCHER_FOLDER_COLS, "Home folder columns", "Apps per row in the opened folders of the home screen. Restart the launcher.", Type.CHOICE, FOLDER_COLS, 0),

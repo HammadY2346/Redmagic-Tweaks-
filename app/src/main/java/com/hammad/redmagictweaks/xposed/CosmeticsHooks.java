@@ -140,11 +140,25 @@ final class CosmeticsHooks {
             }
         });
         Class<?> layoutClass = H.cls(cl, BATTERY_LAYOUT);
+        // dispatchDraw (:316) punches the stock "hollow" percentage out of whatever the icon drew when
+        // mTextHollowEffectAvailable (:95) is set; while a custom shape is on we draw the number ourselves.
+        // Only when the layout declares both itself: global Android 16 (11.0.4MR1) has neither, and H.find would
+        // then return ViewGroup.dispatchDraw, hooking every view SystemUI draws (thousands of errors, slower frames).
+        java.lang.reflect.Method hollowDraw = null;
         if (layoutClass != null) {
-            // dispatchDraw (:316) punches the stock "hollow" percentage out of whatever the icon drew when
-            // mTextHollowEffectAvailable (:95) is set; while a custom shape is on we draw the number ourselves.
-            H.hook(H.find(layoutClass, "dispatchDraw", Canvas.class), new XC_MethodHook() {
+            try {
+                hollowDraw = layoutClass.getDeclaredMethod("dispatchDraw", Canvas.class);
+                layoutClass.getDeclaredField("mTextHollowEffectAvailable");
+            } catch (Throwable t) {
+                hollowDraw = null;
+                Lx.i("cosmetics: no hollow battery text on this firmware, skipped");
+            }
+        }
+        if (hollowDraw != null) {
+            final Class<?> layoutCls = layoutClass;
+            H.hook(hollowDraw, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam p) {
+                    if (!layoutCls.isInstance(p.thisObject)) return;
                     try {
                         S s = s();
                         boolean custom = s.battery > 0 && CosmeticsArt.batteryStyleValid(s.battery);

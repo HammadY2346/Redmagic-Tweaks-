@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.RedMagicTweaks" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- app language: translated text on every inflated view (L) -->
+        <item name="viewInflaterClass">com.hammad.redmagictweaks.ui.LangInflater</item>
         <item name="android:windowBackground">@color/bg</item>
         <item name="colorPrimary">@color/accent</item>
         <item name="colorOnPrimary">@color/on_accent</item>
@@ -28,6 +30,7 @@
     </style>
 
     <style name="ThemeOverlay.RedMagicTweaks.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="viewInflaterClass">com.hammad.redmagictweaks.ui.LangInflater</item>
         <item name="bottomSheetStyle">@style/Widget.RedMagicTweaks.BottomSheet</item>
         <item name="android:navigationBarColor">@color/surface</item>
     </style>
@@ -43,6 +46,7 @@
         <item name="cornerSizeBottomRight">0dp</item>
     </style>
     <style name="ThemeOverlay.RedMagicTweaks.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="viewInflaterClass">com.hammad.redmagictweaks.ui.LangInflater</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorSurfaceContainerHigh">@color/surface</item>
         <item name="shapeAppearanceCornerExtraLarge">@style/Shape.RedMagicTweaks.Dialog</item>

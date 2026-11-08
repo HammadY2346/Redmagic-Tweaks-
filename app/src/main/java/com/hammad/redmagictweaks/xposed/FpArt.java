@@ -218,12 +218,18 @@ final class FpArt {
     }
 
     private static Clip clip;
+    /** When an empty frame-store clip was loaded (the module app's provider can be unreachable for a moment while it
+     *  is being updated or the phone is starting): it is loaded again after a few seconds instead of staying empty. */
+    private static long emptyAt;
 
     /** The clip for the current settings, loading it when they changed (call on one thread only; null when off / empty). */
     static synchronized Clip clip(Context c) {
         boolean on = Cfg.on(FingerprintCustomFeatures.FP_ANIM);
         String want = on ? animSignature() : "";
-        if (clip != null && clip.signature.equals(want)) return clip.empty() ? null : clip;
+        if (clip != null && clip.signature.equals(want)) {
+            if (!clip.empty()) return clip;
+            if (clip.atlas != null || System.currentTimeMillis() - emptyAt < 5000) return null;   // retry frame stores
+        }
         Clip old = clip;
         clip = null;
         if (old != null) old.recycle();
@@ -231,7 +237,14 @@ final class FpArt {
         long t0 = System.currentTimeMillis();
         Clip n = load(c, want);
         clip = n;
-        if (n.empty()) { Lx.w("fingerprint: set " + set() + " has no frames (import a folder or pick another set)"); return null; }
+        if (n.empty()) {
+            boolean again = emptyAt != 0;
+            emptyAt = System.currentTimeMillis();
+            if (!again) Lx.w("fingerprint: set " + set() + " has no frames yet (import a folder or pick another set; tried again on the next touch)");
+            return null;
+        }
+        if (emptyAt != 0) Lx.i("fingerprint: frames reachable again");
+        emptyAt = 0;
         Lx.i("fingerprint: " + n.count + " frames ready for " + set() + " in " + (System.currentTimeMillis() - t0) + " ms");
         return n;
     }

@@ -72,8 +72,25 @@ public final class LogProvider extends ContentProvider {
         }
         if (!METHOD_LOG.equals(method) || arg == null) return null;
         if (arg.length() > 4000) arg = arg.substring(0, 4000);
-        LogStore.append(c, LogStore.stamp() + " [" + caller + "] " + arg.replace('\n', ' '));
+        LogStore.append(c, LogStore.stamp() + " [" + label(c, caller, extras) + "] " + arg.replace('\n', ' '));
         return Bundle.EMPTY;
+    }
+
+    /**
+     * The hooked process's own name for the log. Processes sharing a uid (system_server and the uid-1000 apps such
+     * as com.zte.zgesture) all map to one package list, so the uid alone names them at random. The tag the hook sends
+     * is used when it belongs to the calling uid: "android" only from uid 1000, any other only if it is (or is a
+     * process of) one of the uid's packages.
+     */
+    private static String label(Context c, String caller, Bundle extras) {
+        String tag = extras == null ? null : extras.getString("tag");
+        if (tag == null || tag.isEmpty() || tag.length() > 120) return caller;
+        int uid = Binder.getCallingUid();
+        String base = tag.contains("[") ? tag.substring(0, tag.indexOf('[')) : tag;
+        if ("android".equals(base)) return uid == android.os.Process.SYSTEM_UID ? tag : caller;
+        String[] pkgs = c.getPackageManager().getPackagesForUid(uid);
+        if (pkgs != null) for (String p : pkgs) if (p.equals(base)) return tag;
+        return caller;
     }
 
     private String callerPackage(Context c) {
