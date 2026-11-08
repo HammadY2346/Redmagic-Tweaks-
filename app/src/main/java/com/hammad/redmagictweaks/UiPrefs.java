@@ -8,6 +8,19 @@ public final class UiPrefs {
     private UiPrefs() {}
     static SharedPreferences p(Context c) { return c.getSharedPreferences("ui", Context.MODE_PRIVATE); }
 
+    /**
+     * App language ("en" / "ru"), independent of tweak settings.
+     * Until the user picks one, follow the phone language so Russian phones stay in Russian.
+     */
+    public static String language(Context c) {
+        String stored = p(c).getString("app_language", null);
+        if ("ru".equals(stored) || "en".equals(stored)) return stored;
+        return "ru".equals(java.util.Locale.getDefault().getLanguage()) ? "ru" : "en";
+    }
+    public static void setLanguage(Context c, String language) {
+        p(c).edit().putString("app_language", "ru".equals(language) ? "ru" : "en").apply();
+    }
+
     /** Advanced mode: fine-tuning rows (nudges, offsets, rotation, the stock lock clock) and the Advanced category. */
     public static boolean advanced(Context c) { return p(c).getBoolean("advanced", false); }
     public static void setAdvanced(Context c, boolean v) { p(c).edit().putBoolean("advanced", v).apply(); }

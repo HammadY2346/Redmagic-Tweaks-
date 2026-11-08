@@ -31,6 +31,12 @@ public final class AodFeatures {
         return f;
     }
 
+    /** A video behind the AOD clock (xposed/AodVideoHooks); the clip itself is AodVideo, picked in the app. */
+    public static final String VIDEO = "aod_video", VIDEO_ON = "aod_video_on", VIDEO_END = "aod_video_end", VIDEO_FIT = "aod_video_fit";
+    public static final String[] VIDEO_ENDS = {"Play once, then the normal AOD", "Stop on the last frame", "Loop (uses more battery)"};
+    /** Index 0 = whole video: on the black AOD the bars don't show (the China AOD clips are 1080x690 bands). */
+    public static final String[] VIDEO_FITS = {"Whole video (bars blend into the black AOD)", "Fill the screen (edges cropped)"};
+
     private static final String NEXT = " Applies the next time the AOD shows.";
     private static final String[] SHOW = {"Stock (per style)", "Always show", "Always hide"};
 
@@ -87,6 +93,13 @@ public final class AodFeatures {
         new Features.Feature(CLOCK_SIZE, "AOD clock size", "Makes the AOD clock (with its date and battery) smaller or bigger." + NEXT,
                 Features.Type.CHOICE, new String[]{"Stock", "80 %", "90 %", "110 %", "120 %", "130 %"}, 0).num(50, 200, 5, "%"),
         new Features.Feature(CLOCK_POSITION, "AOD clock position", "Moves the AOD clock (with its date and battery) up or down the screen. The burn-in shift still moves it a little around the new spot." + NEXT,
-                Features.Type.CHOICE, CLOCK_POSITIONS, 0).num(-300, 300, 5, "dp")
+                Features.Type.CHOICE, CLOCK_POSITIONS, 0).num(-300, 300, 5, "dp"),
+        new Features.Feature(VIDEO, "AOD video…", "Pick a short video (up to 60 s, 100 MB) to play behind the AOD clock when the screen goes off: any clip of your own, or the China firmware's AOD animations (copy them from aodfiles to the phone first). It plays muted.",
+                Features.Type.ACTION, null, 0),
+        new Features.Feature(VIDEO_ON, "Play the AOD video", "Shows the chosen clip full screen behind the AOD clock, date and notification icons each time the AOD appears. Use it with a clock style: RedMagic's own video and animated styles cover it." + NEXT),
+        new Features.Feature(VIDEO_END, "At the end of the AOD video", "Play once and fade back to the normal AOD (least battery, no burn-in), keep the last frame on screen (a still full-screen picture: mind OLED burn-in), or loop it while the AOD shows (keeps the phone awake: uses clearly more battery)." + NEXT,
+                Features.Type.CHOICE, VIDEO_ENDS, 0),
+        new Features.Feature(VIDEO_FIT, "AOD video fit", "Show the whole video (the bars are black like the AOD, so they don't show), or fill the screen and crop what doesn't fit." + NEXT,
+                Features.Type.CHOICE, VIDEO_FITS, 0)
     );
 }

@@ -1,0 +1,31 @@
+Green crystal cube fast charge (was "Nubia Fast Charge (CN stock)"): the power-off charger's
+art, the same design as Global's lock-screen CAMELLYA set; black keyed to transparency
+-----------------------------------------------
+Frames: assets/charging/cn_fast_charge/000.webp ... 071.webp
+Source: RedMagic OS (China) stock fast-charge animation,
+        /system/etc/res/images/ztecharger/FC00.png ... FC71.png
+        (c) nubia / ZTE. Re-encoded PNG -> WEBP, artwork unchanged.
+Shipped in RM Tweaks and RedMagic Tweaks.
+
+Wuthering Waves CAMELLYA edition (CN) pink lotus charging animations
+------------------------------------------
+Frames: assets/charging/cn_pink_charge/000.webp ... 074.webp
+        assets/charging/cn_pink_fast_charge/000.webp ... 074.webp
+Source: RedMagic OS 11 (China) stock charging animation,
+        /system/etc/custom_config/app/systemUI/charge/redmagic_charge_000..074.webp and
+        redmagic_fast_charge_000..074.webp (Global ships different art under the same names).
+        (c) nubia / ZTE. Re-encoded WEBP (quality 80), artwork unchanged.
+Shipped in RM Tweaks and RedMagic Tweaks.
+
+RedMagic CN blue ring charging animations
+-----------------------------------------
+Frames: assets/charging/cn_ring_normal, cn_ring_fast            (PCD_00000..74 / KCD_00000..74)
+Source: RedMagic OS 11 (China) /system/etc/res/images/ztecharger (power-off charging),
+        (c) nubia / ZTE. Black background keyed to transparency, re-encoded WEBP. Shipped in RM Tweaks and RedMagic Tweaks.
+
+Black Myth: Wukong golden staff (one entry per stage)
+----------------------------------------------------
+Frames: assets/charging/cn_staff_normal, _normal_mid, _normal_full  (ip_mk_part_one/two/three_charge_001..)
+        assets/charging/cn_staff_fast,   _fast_mid,   _fast_full    (ip_mk_part_one/two/three_fast_charge_001..)
+Source: RedMagic OS 10.5 (Global 15) SystemUI drawables ip_mk_part_* (lock-screen art with its own alpha; the
+        firmware ships them but never plays them), (c) nubia / ZTE. Pixels under 4/255 alpha cleared, WEBP. Shipped in RM Tweaks and RedMagic Tweaks.

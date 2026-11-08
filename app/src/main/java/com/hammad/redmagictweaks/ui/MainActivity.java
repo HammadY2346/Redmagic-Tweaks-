@@ -22,6 +22,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.hammad.redmagictweaks.BuildConfig;
 import com.hammad.redmagictweaks.Catalog;
+import com.hammad.redmagictweaks.L;
 import com.hammad.redmagictweaks.LayoutStore;
 import com.hammad.redmagictweaks.LogStore;
 import com.hammad.redmagictweaks.LookPreview;
@@ -65,6 +66,9 @@ public class MainActivity extends BaseActivity {
         if (Safety.safeMode(this)) rows.add(new Row(BANNER, "Safe mode is on: every tweak is paused. Your settings are kept and come back when you turn it off.", null, R.drawable.ic_shield, null));
         if (!supportedPhone()) rows.add(new Row(BANNER, BuildConfig.APP_NAME + " is made and tested on the REDMAGIC 10S Pro (NX789J). On " + Build.MODEL
                 + " some tweaks may do nothing; Logs show which ones found their target.", null, R.drawable.ic_cat_advanced, null));
+        if (com.hammad.redmagictweaks.IconMask.oneUiInstalled(this)) rows.add(new Row(BANNER,
+                "One UI Home: LSPosed → RM Tweaks → tick com.sec.android.app.launcher, then reboot. Icon packs need that. Icon shape is also written into the system mask. App language is in this ⋮ menu.",
+                null, R.drawable.ic_cat_home, null));
         rows.add(new Row(STATUS, null, null, 0, null));
         rows.add(new Row(SEARCH, null, null, 0, null));
         rows.add(new Row(SUBHEAD, "Looks", null, 0, null));
@@ -98,13 +102,19 @@ public class MainActivity extends BaseActivity {
         list.setLayoutManager(glm);
         list.setAdapter(new HomeAdapter());
         MaterialToolbar tb = findViewById(R.id.toolbar);
+        for (int i = 0; i < tb.getMenu().size(); i++) {
+            android.view.MenuItem menuItem = tb.getMenu().getItem(i);
+            menuItem.setTitle(L.t(this, menuItem.getTitle()));
+        }
         tb.getMenu().findItem(R.id.action_advanced).setChecked(UiPrefs.advanced(this));
         tb.getMenu().findItem(R.id.action_detailed).setChecked(UiPrefs.detailed(this));
+        tb.getMenu().findItem(R.id.action_language).setTitle(L.t(this, "App language"));
         com.hammad.redmagictweaks.Region.sync(this);
         setupGlobal(tb.getMenu());
         setupOneUiHome(tb.getMenu());
         tb.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
+            if (id == R.id.action_language) { pickLanguage(); return true; }
             if (id == R.id.action_oneui_home) { toggleOneUiHome(item); return true; }
             if (id == R.id.action_new_badges) { pickNewBadges(); return true; }
             if (id == R.id.action_export_icons) { IconExport.run(this); return true; }
@@ -141,6 +151,24 @@ public class MainActivity extends BaseActivity {
         super.onResume();
         onSettingsChanged();
         checkGuards();
+    }
+
+    /** Pick the app language without changing the phone language or resetting tweak preferences. */
+    private void pickLanguage() {
+        final String current = L.language(this);
+        String[] choices = {L.t(this, "English"), L.t(this, "Русский")};
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(L.t(this, "App language"))
+                .setSingleChoiceItems(choices, "ru".equals(current) ? 1 : 0, (dialog, which) -> {
+                    String next = which == 1 ? "ru" : "en";
+                    dialog.dismiss();
+                    if (!next.equals(current)) {
+                        L.setLanguage(this, next);
+                        recreate();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void resetAll() {

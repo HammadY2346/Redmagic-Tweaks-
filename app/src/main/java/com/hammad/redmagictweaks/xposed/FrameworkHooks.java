@@ -460,9 +460,11 @@ final class FrameworkHooks {
                 // slower while it is on: a touch, TGPA or Game Assist request could otherwise drop it back to 120 Hz
                 if ("Enable-interp".equals(who) || interpActive(p.thisObject, topPkg)) {
                     try {
-                        int want = interpTarget(ctl);
+                        int want = interpTarget(ctl, p.thisObject);
                         int asked = (Integer) p.args[0];
-                        if (want > 0 && asked < want && interpActive(p.thisObject, topPkg)) {
+                        // "Match the interpolation" holds the rate exactly (no 165 Hz for 120 / 144 fps); the others are a floor
+                        boolean exact = gfrcMatch();
+                        if (want > 0 && (asked < want || (exact && asked > want)) && interpActive(p.thisObject, topPkg)) {
                             p.args[0] = want;
                             if (lastLogged.getAndSet(20000 + want) != 20000 + want)
                                 Lx.i("RefreshRate: frame interpolation keeps the panel at " + want + " Hz (asked " + asked + " by " + who + ")");
@@ -491,7 +493,7 @@ final class FrameworkHooks {
             @Override protected void afterHookedMethod(MethodHookParam p) {
                 try {
                     if (XposedHelpers.getIntField(p.thisObject, "mInterp") == 0) return;
-                    int want = interpTarget(ctl);
+                    int want = interpTarget(ctl, p.thisObject);
                     if (want <= 0) return;
                     Object was = p.getResult();
                     if (was instanceof Integer && (Integer) was == want) return;
@@ -506,7 +508,10 @@ final class FrameworkHooks {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
                 final String pkg = (String) p.args[0];
                 final int level = (Integer) p.args[1];
-                Lx.i("Games: frame interpolation " + (level == 0 ? "off" : "on, " + (level == 1 ? "Super" : level == 2 ? "Ultra" : "level " + level)) + " for " + pkg);
+                // "off" arrives on every app switch for every app; log only real changes (on, level change, on -> off)
+                Integer prev = pkg == null ? null : INTERP_STATE.put(pkg, level);
+                if ((prev == null ? 0 : prev) != level)
+                    Lx.i("Games: frame interpolation " + (level == 0 ? "off" : "on, " + (level == 1 ? "Super" : level == 2 ? "Ultra" : "level " + level)) + " for " + pkg);
                 if (level != 0) interpCheck(ctl, p.thisObject, pkg, level);
             }
         })) n++;
@@ -552,12 +557,22 @@ final class FrameworkHooks {
         Lx.i("framework: refresh-rate hooks " + n);
     }
 
+    /** Last interpolation level reported per package, so the log shows changes only. */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Integer> INTERP_STATE = new java.util.concurrent.ConcurrentHashMap<>();
+
     /** The panel rate picked for frame interpolation (GAME_GFRC_TARGET), or -1 = stock. */
-    private static int interpTarget(Class<?> ctl) {
+    private static int interpTarget(Class<?> ctl, Object ctlObj) {
         int idx = Cfg.choice(Features.GAME_GFRC_TARGET);
         if (idx <= 0 || idx >= Features.GFRC_TARGET_HZ.length) return -1;
         int hi = XposedHelpers.getStaticIntField(ctl, "sHighestFps");
-        int want = Features.GFRC_TARGET_HZ[idx] < 0 ? hi : Features.GFRC_TARGET_HZ[idx];
+        int hz = Features.GFRC_TARGET_HZ[idx];
+        if (hz == -3) {
+            // by level: Super doubles a 60 fps game (120), Ultra makes 144 of it (with the 144 module; stock Ultra also doubles)
+            int level = 1;
+            try { level = XposedHelpers.getIntField(ctlObj, "mInterp"); } catch (Throwable ignored) { }
+            hz = level >= 2 ? 144 : 120;
+        }
+        int want = hz < 0 ? hi : hz;
         if (want == 90 && !staticBool(ctl, "isRealSupport_90Hz")) return -1;          // no real 90 Hz mode: stock choice
         if (want == 144 && !staticBool(ctl, "isSupport_144Hz")) want = hi;
         if (hi > 0) want = Math.min(want, hi);
@@ -597,6 +612,12 @@ final class FrameworkHooks {
         }, "rmtweaks-interp-check");
         t.setDaemon(true);
         t.start();
+    }
+
+    /** "Match the interpolation" is picked: the panel rate is held exactly while interpolation is on. */
+    private static boolean gfrcMatch() {
+        int idx = Cfg.choice(Features.GAME_GFRC_TARGET);
+        return idx > 0 && idx < Features.GFRC_TARGET_HZ.length && Features.GFRC_TARGET_HZ[idx] == -3;
     }
 
     /** Frame interpolation is on for pkg (or for any package when pkg is null): ScreenRefreshRateController.mInterp / mInterpPackage. */

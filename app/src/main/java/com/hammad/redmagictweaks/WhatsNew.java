@@ -31,7 +31,8 @@ public final class WhatsNew {
         put("game_view", "2026-10-22", NEW_SETTING);
         put("game_launch_boost", "2026-10-23", NEW_SETTING);
         put("game_launch_boost_games", "2026-10-23", NEW_SETTING);
-        put("game_gfrc_target", "2026-10-23", NEW_SETTING);
+        put("game_gfrc_target", "2026-10-24", NEW_SETTING);
+        put("ui_app_icon", "2026-10-24", NEW_SETTING);
         put("vol_side", "2026-10-22", NEW_SETTING);
         put("vol_margin", "2026-10-22", NEW_SETTING);
         put("game_view_games", "2026-10-22", NEW_SETTING);
@@ -41,6 +42,10 @@ public final class WhatsNew {
         put("lock_video_end", "2026-10-22", NEW_SETTING);
         put("lock_video_sound", "2026-10-22", NEW_SETTING);
         put("lock_video_fit", "2026-10-22", NEW_SETTING);
+        put("aod_video", "2026-11-04", NEW_SETTING);
+        put("aod_video_on", "2026-11-04", NEW_SETTING);
+        put("aod_video_end", "2026-11-04", NEW_SETTING);
+        put("aod_video_fit", "2026-11-04", NEW_SETTING);
         put("aod_battery", "2026-10-21", NEW_SETTING);
         put("aod_brightness", "2026-10-21", NEW_SETTING);
         put("aod_burn_in", "2026-10-21", NEW_SETTING);
@@ -84,7 +89,6 @@ public final class WhatsNew {
         put("game_assist_defer", "2026-10-22", NEW_SETTING);
         put("game_fullscreen", "2026-10-22", NEW_SETTING);
         put("game_gfrc_all", "2026-10-22", NEW_SETTING);
-        put("game_gfrc_target", "2026-10-22", NEW_SETTING);
         put("game_launch_boost", "2026-10-22", NEW_SETTING);
         put("launcher_cols", "2026-10-22", TYPED_VALUE);
         put("launcher_drawer_label_size", "2026-10-22", TYPED_VALUE);
@@ -100,6 +104,8 @@ public final class WhatsNew {
         put("launcher_icon_pack", "2026-10-22", NEW_SETTING);
         put("launcher_icon_shape", "2026-10-22", NEW_SETTING);
         put("launcher_label_size", "2026-10-22", NEW_SETTING);
+        put("launcher_icon_size", "2026-11-04", NEW_SETTING);
+        put("game_all_plugins", "2026-11-04", NEW_SETTING);
         put("launcher_paged_rows", "2026-10-22", TYPED_VALUE);
         put("launcher_rows", "2026-10-22", TYPED_VALUE);
         put("lock_charge_interval", "2026-10-22", TYPED_VALUE);

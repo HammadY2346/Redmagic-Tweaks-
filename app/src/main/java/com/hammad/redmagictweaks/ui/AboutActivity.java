@@ -55,7 +55,11 @@ public class AboutActivity extends BaseActivity {
         LinearLayout app = card();
         app.setGravity(Gravity.CENTER_HORIZONTAL);
         ImageView icon = new ImageView(this);
-        icon.setImageResource(R.mipmap.ic_launcher);
+        icon.setImageResource(com.hammad.redmagictweaks.FlavorBits.appIconRes(this));
+        icon.setClipToOutline(true);
+        icon.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override public void getOutline(android.view.View v, android.graphics.Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), Ui.dp(v.getContext(), 18)); }
+        });
         app.addView(icon, new LinearLayout.LayoutParams(Ui.dp(this, 72), Ui.dp(this, 72)));
         app.addView(text(BuildConfig.APP_NAME, 22, R.color.text, 700, Gravity.CENTER, 8));
         app.addView(text("Version " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") · " + BuildConfig.FLAVOR + " build", 13, R.color.text_dim, 400, Gravity.CENTER, 2));

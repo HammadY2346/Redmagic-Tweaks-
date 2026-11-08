@@ -83,7 +83,13 @@ final class OptionSheet {
         sel = current;
         int[] v = new int[item.feature.choices.length];
         int k = 0;
-        for (int i = 0; i < v.length; i++) if (item.feature.offered(i)) v[k++] = i;
+        boolean chargeSets = com.hammad.redmagictweaks.Features.CHARGE_SET.equals(item.key());
+        for (int i = 0; i < v.length; i++) {
+            if (!item.feature.offered(i)) continue;
+            // charging sets this firmware has no frames for are left out (the current pick always stays listed)
+            if (chargeSets && i != current && !com.hammad.redmagictweaks.ChargeSets.available(a, i)) continue;
+            v[k++] = i;
+        }
         vis = java.util.Arrays.copyOf(v, k);
         provider = Previews.of(item.key());
         frames = Previews.frames(item.key());
@@ -109,12 +115,13 @@ final class OptionSheet {
         v.findViewById(R.id.sheet_apply).setOnClickListener(x -> apply());
         Ui.fonts(v);
         d.setContentView(v);
+        com.hammad.redmagictweaks.L.attachAll(v);
         d.setOnDismissListener(x -> { animToken++; pool.shutdownNow(); });
         BottomSheetBehavior<?> b = d.getBehavior();
         b.setSkipCollapsed(true);
         b.setState(BottomSheetBehavior.STATE_EXPANDED);
         keepFooterAboveKeyboard(d, v);
-        // the list scrolls inside a sheet that may take most of the screen
+        // the list is the only scrolling view: title and preview stay put, and the sheet drags down only once the list is at its top
         listHeight();
         fitPreview();
         drawPreview();
@@ -125,7 +132,7 @@ final class OptionSheet {
     private boolean imeOpen;
 
     /**
-     * Cancel / Apply stay pinned under the scrolling content (sheet_options.xml). While the keyboard is open (a typed
+     * Cancel / Apply stay pinned under the option list (sheet_options.xml). While the keyboard is open (a typed
      * value or a hex code) the sheet is padded by the part of the keyboard that covers it, so the buttons sit right above
      * the keyboard; the preview shrinks meanwhile.
      */

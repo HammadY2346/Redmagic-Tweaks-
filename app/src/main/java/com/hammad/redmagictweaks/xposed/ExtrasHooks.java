@@ -129,7 +129,8 @@ final class ExtrasHooks {
         if (H.constant(fc, "isUltraPowerSaveModeNotSupported", boolean.class, H.types(), false, () -> Cfg.on(ExtrasFeatures.BAT_SUPER_MODE))) n++;
         if (ui != null && H.constant(ui, "isSupportSuperMode", boolean.class, H.types(), true, () -> Cfg.on(ExtrasFeatures.BAT_SUPER_MODE))) n++;
         if (H.constant(fc, "isRemoveRefreshRate", boolean.class, H.types(), false, () -> Cfg.on(ExtrasFeatures.BAT_REFRESH_RATE))) n++;
-        if (H.constant(fc, "isHideRefreshRate", boolean.class, H.types(), false, () -> Cfg.on(ExtrasFeatures.BAT_REFRESH_RATE))) n++;
+        // not in every firmware (Global 11.0.4MR1 has only isRemoveRefreshRate): hooked when present, no warning otherwise
+        if (H.find(fc, "isHideRefreshRate") != null && H.constant(fc, "isHideRefreshRate", boolean.class, H.types(), false, () -> Cfg.on(ExtrasFeatures.BAT_REFRESH_RATE))) n++;
         if (H.constant(fc, "isShowChargeSeparation", boolean.class, H.types(), true, () -> Cfg.on(ExtrasFeatures.BAT_CHARGE_SEPARATION))) n++;
         if (H.constant(fc, "isShowLongChargeNotifySwitch", boolean.class, H.types(), true, () -> Cfg.on(ExtrasFeatures.BAT_LONG_CHARGE))) n++;
         if (H.constant(fc, "isShowBatteryTime", boolean.class, H.types(), true, () -> Cfg.on(ExtrasFeatures.BAT_TIME))) n++;

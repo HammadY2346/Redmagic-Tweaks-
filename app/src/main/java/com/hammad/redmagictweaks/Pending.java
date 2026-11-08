@@ -28,7 +28,13 @@ public final class Pending {
         switch (it.restart) {
             case SYSTEM_UI: s.add("s|" + it.key()); break;
             case REBOOT: s.add("r|" + it.key()); break;
-            case APP: for (String p : it.packages()) s.add("a|" + p + "|" + it.key()); break;
+            case APP:
+                for (String p : it.packages()) s.add("a|" + p + "|" + it.key());
+                // Icon pack / shape apply system-wide: also restart the active third-party home app.
+                if (Homes.globalIcons(it.key())) {
+                    for (String p : Homes.packages(c)) s.add("a|" + p + "|" + it.key());
+                }
+                break;
             default: return;
         }
         put(c, s);

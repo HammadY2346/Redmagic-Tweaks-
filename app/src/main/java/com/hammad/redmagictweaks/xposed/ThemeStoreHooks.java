@@ -143,9 +143,13 @@ final class ThemeStoreHooks {
         int added = 0, variantsTried = 0;
         for (String[] v : variants()) {
             variantsTried++;
-            forced.set(new String[]{v[1], v[2]});
+            // 10.5.6 / 10.5.8 ship the list as theme_wallpaper_config_<variant id>, not the 10.5.13 feature name.
+            String feature = v[1];
+            if (!configExists(feature) && v[2] != null && configExists(v[2].toLowerCase(java.util.Locale.ROOT)))
+                feature = v[2].toLowerCase(java.util.Locale.ROOT);
+            forced.set(new String[]{feature, v[2]});
             int parsed = 0, onDiskN = 0, serverN = 0, dup = 0, skipped = 0;
-            String cfg = configExists(v[1]) ? "found" : "MISSING (app falls back to the product / launcher-feature config)";
+            String cfg = configExists(feature) ? "found" : "MISSING (this firmware's theme resource has no list for it; the 10.5.13 theme package adds that list)";
             try {
                 Object x;
                 synchronized (xmlCache) { x = xmlCache.get(v[1]); }

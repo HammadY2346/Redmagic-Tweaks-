@@ -94,6 +94,7 @@ public final class Catalog {
         for (String k : new String[]{"lock_oneui_face", "lock_oneui_size", "lock_oneui_position"}) NEEDS.put(k, "lock_oneui_clock");
         for (String k : new String[]{"aod_oneui_face", "aod_oneui_size"}) NEEDS.put(k, "aod_oneui_clock");
         for (String k : new String[]{"lock_video_when", "lock_video_end", "lock_video_sound", "lock_video_fit"}) NEEDS.put(k, "lock_video_on");
+        for (String k : new String[]{"aod_video_end", "aod_video_fit"}) NEEDS.put(k, "aod_video_on");
         NEEDS.put("game_view_gs_custom", "game_view_gs_stretch");
     }
 
@@ -170,6 +171,8 @@ public final class Catalog {
     /** A setting of the stock launcher (its home screen, drawer and recents): nothing to change while One UI Home is home. */
     private static boolean stockLauncher(Item it) {
         if (it.origin == null) return false;
+        // Icon pack / shape are system-wide (zygote): keep them visible for third-party launchers too.
+        if (Homes.globalIcons(it.key())) return false;
         for (String p : it.origin.packages) if ("com.zte.mifavor.launcher".equals(p)) return true;
         return false;
     }
@@ -248,6 +251,7 @@ public final class Catalog {
             .group("Always-on display", "aod_brightness", "aod_tap_time", "aod_low_battery", "aod_power_saving", "aod_burn_in", "aod_fade")
             .group("AOD clock and lines", "aod_oneui_clock", "aod_oneui_face", "aod_oneui_size", "aod_clock_color", "aod_clock_size", "aod_clock_position", "lock_aod_seconds", "lock_aod_datetime", "aod_battery", "aod_lunar")
             .group("AOD notifications", "aod_notifications", "aod_notif_count", "aod_notif_size", "aod_notif_app_icons")
+            .group("AOD video", "aod_video", "aod_video_on", "aod_video_end", "aod_video_fit")
             .group("Stock clock and date", "~lock_clock_hide", "~lock_clock_size", "~lock_clock_opacity", "~lock_clock_dx", "~lock_clock_dy", "~lock_clock_rot",
                     "~lock_date_hide", "~lock_date_size", "~lock_date_opacity", "~lock_date_dx", "~lock_date_dy", "~lock_date_rot");
         b.cat("fingerprint", "Fingerprint", "Unlock animation, icon and collab styles", R.drawable.ic_fingerprint, false)
@@ -276,11 +280,11 @@ public final class Catalog {
                     "launcher_drawer_label_size", "launcher_hide_fastscroller")
             .group("Drawer folders", "launcher_folder_shape", "launcher_folder_color", "launcher_folder_opacity", "launcher_folder_grid", "launcher_folder_label",
                     "launcher_folder_open_style", "launcher_folder_view_bg", "launcher_folder_view_radius", "launcher_folder_view_cols", "launcher_folder_view_no_names")
-            .group("App icons", "launcher_icon_pack", "launcher_icon_shape", "launcher_label_size", "launcher_hide_labels")
+            .group("App icons", "launcher_icon_pack", "launcher_icon_shape", "launcher_icon_size", "launcher_label_size", "launcher_hide_labels")
             .group("Home screen", "launcher_cols", "launcher_rows", "launcher_hotseat", "launcher_hotseat_text", "launcher_two_line", "launcher_circle_scroll",
                     "launcher_rotation", "launcher_folder_cols", "launcher_folder_rows");
         b.cat("gaming", "Gaming", "Game Space, key mapping, fan light", R.drawable.ic_game, false)
-            .group("Game Space", "game_unfreeze", "game_macro_any", "game_combo_speed", "game_tgk_link_all", "game_sr_balance", "game_sr_coexist",
+            .group("Game Space", "game_unfreeze", "game_all_plugins", "game_macro_any", "game_combo_speed", "game_tgk_link_all", "game_sr_balance", "game_sr_coexist",
                     "game_no_dialogs", "game_keep_redmagic_time", "game_ai_speed", "game_record_free", "game_active_mode_keep",
                     "game_gfrc_all", "game_gfrc_target", "game_fullscreen", "game_view", "game_view_only_game", "game_view_gs_stretch", "game_view_gs_custom", "game_view_strength", "game_view_games", "game_launch_boost", "game_assist_defer")
             .group("Controls and lights", "key_continuous", "key_xgravity", "light_fan", "light_new_protocol")

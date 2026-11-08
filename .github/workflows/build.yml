@@ -1,7 +1,7 @@
 name: Build
 on:
   push:
-    branches: [main]
+    branches: [main, 'cursor/**']
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -136,10 +136,18 @@ jobs:
           if [ -n "$RELEASE_TAG" ]; then V="$RELEASE_TAG"; else V="$(git rev-parse --short HEAD)"; fi
           cp app/build/outputs/apk/$FLAVOR/release/app-$FLAVOR-release.apk "out/${APK_NAME}-${V}.apk"
           ls -l out
+          echo "APK_FILE=$(ls out/*.apk | head -1)" >> "$GITHUB_ENV"
+          echo "APK_VERSION=$V" >> "$GITHUB_ENV"
+      - name: Upload APK (Actions artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}-${{ env.APK_VERSION }}
+          path: out/*.apk
+          if-no-files-found: error
       - name: Release
-        # private: every build is a release; public: only versions (a v* tag, or "release" on a manual run), with release-notes/<version>.md
-        # (a private build of another branch, e.g. a compile check, is not released)
-        if: (env.FLAVOR == 'private' && github.ref == 'refs/heads/main') || env.RELEASE_TAG != '' || env.PUBLIC_TEST == '1'
+        # private main: normal release; private PR/branch: prerelease so the APK shows under Releases;
+        # public: only versions (a v* tag, or "release" on a manual run), with release-notes/<version>.md
+        if: env.FLAVOR == 'private' || env.RELEASE_TAG != '' || env.PUBLIC_TEST == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -149,9 +157,26 @@ jobs:
             { echo "RedMagic Tweaks (public edition) test build from $(git rev-parse --short HEAD) of RM Tweaks. Not a public release."; echo; git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):'; } > notes.txt
             gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --prerelease --title "RedMagic Tweaks test $TAG" --notes-file notes.txt
           elif [ "$FLAVOR" = private ]; then
-            TAG="rmtweaks-r${{ github.run_number }}"
-            git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt
-            gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --title "$TITLE $TAG" --notes-file notes.txt
+            if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+              TAG="rmtweaks-r${{ github.run_number }}"
+              git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt
+              gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --title "$TITLE $TAG" --notes-file notes.txt
+            else
+              # Branch / PR build: prerelease under Releases for easy download
+              BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+              SAFE=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-' | cut -c1-40)
+              TAG="rmtweaks-${SAFE}-r${{ github.run_number }}"
+              {
+                echo "Test build from branch \`$BRANCH\` (\`$(git rev-parse --short HEAD)\`)."
+                echo
+                echo "**Download the APK below**, or from the Actions artifact on this run."
+                echo
+                git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):'
+              } > notes.txt
+              # replace an older prerelease with the same tag pattern if the push is retried
+              gh release delete "$TAG" --yes 2>/dev/null || true
+              gh release create "$TAG" out/*.apk --target "$GITHUB_SHA" --prerelease --title "$TITLE $TAG" --notes-file notes.txt
+            fi
           else
             TAG="$RELEASE_TAG"
             if [ -f "release-notes/$TAG.md" ]; then cp "release-notes/$TAG.md" notes.txt; else git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt; fi

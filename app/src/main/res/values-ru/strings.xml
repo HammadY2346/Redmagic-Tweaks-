@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xposed_description">Оформление One UI 8 и настройки для телефонов REDMAGIC (NX789J, RedMagic OS 11): строка состояния, центр управления, экран блокировки, лаунчер и недавние приложения, Game Space, анимации зарядки и отпечатка.</string>
+    <string name="status_active">Модуль включён</string>
+    <string name="status_inactive">Модуль не включён — включите его в LSPosed и перезагрузите телефон</string>
+    <string name="status_scope_hint">Область: отметьте каждое приложение в LSPosed, затем перезапустите их или перезагрузите телефон.</string>
+    <string name="logs">Журнал</string>
+    <string name="log_empty">Записей пока нет. Откройте приложение из области модуля (Game Space, лаунчер…) и вернитесь сюда.</string>
+    <string name="clear">Очистить</string>
+    <string name="share">Поделиться</string>
+    <string name="copy">Копировать</string>
+    <string name="log_share_txt">Отправить файлом .txt</string>
+    <string name="log_save_txt">Сохранить .txt в «Загрузки»</string>
+    <string name="log_switch">Записывать журнал</string>
+    <string name="log_on">Включено: настройки записывают сюда, что они делают</string>
+    <string name="log_off">Выключено: ничего не записывается (ошибки по-прежнему попадают в журнал LSPosed)</string>
+    <string name="log_off_empty">Запись выключена. Включите «Записывать журнал» выше и повторите действие.</string>
+    <string name="restart_hint">Изменения применятся после перезапуска приложения (принудительная остановка или перезагрузка).</string>
+    <string name="enabled_of">Включено %1$d из %2$d</string>
+    <string name="all">Все</string>
+    <string name="errors">Ошибки</string>
+    <string name="hooks">Перехваты</string>
+</resources>

@@ -10,6 +10,7 @@
         <item>com.zte.fingerprints</item>
         <item>com.fingerprint.sensorservice</item>
         <item>com.zte.mifavor.launcher</item>
+        <item>com.sec.android.app.launcher</item>
         <item>com.android.systemui</item>
         <item>com.android.packageinstaller</item>
         <item>com.android.settings</item>

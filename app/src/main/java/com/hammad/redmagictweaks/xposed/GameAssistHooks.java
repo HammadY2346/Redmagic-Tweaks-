@@ -24,6 +24,8 @@ final class GameAssistHooks {
 
     static void install(ClassLoader cl) {
         unfreeze(cl);
+        // (the r143-r146 "every plugin" hook on QSTile.isAppEnable is gone: that is each plugin's own on/off switch for the
+        // game in front, forcing it turned every plugin on with no way off. The per-game list is PluginConfig.isPluginEnable.)
         superResolution(cl);
         dialogs(cl);
         activeMode(cl);
@@ -82,42 +84,52 @@ final class GameAssistHooks {
         Class<?> adapter = H.cls(cl, p + "ChoiceGridView$OptionAdapter");
         Class<?> ind = H.cls(cl, p + "GameRatioIndicatorWindow");
         int n = 0;
-        // option id -> stored ratio, and back (always: a saved 1.60 keeps its option)
-        if (H.hook(H.find(mgr, "n", int.class), new XC_MethodHook() {
+        // option id -> stored ratio, and back. A15 (10.5.x) renames n/j/B, so every method with that shape is hooked;
+        // the callback only replaces the extra ratios.
+        n += hookShape(mgr, String.class, int.class, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam m) {
-                String v = (Integer) m.args[0] == CUSTOM_ID ? customValue() : EXTRA_VALUE.get((Integer) m.args[0]);
+                int id = (Integer) m.args[0];
+                String v = id == CUSTOM_ID ? customValue() : EXTRA_VALUE.get(id);
                 if (v != null) m.setResult(v);
             }
-        })) n++;
-        if (H.hook(H.find(mgr, "j", String.class), new XC_MethodHook() {
+        });
+        n += hookShape(mgr, int.class, String.class, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam m) {
                 for (java.util.Map.Entry<Integer, String> e : EXTRA_VALUE.entrySet())
                     if (e.getValue().equals(m.args[0])) { m.setResult(e.getKey()); return; }
                 String c = customValue();
                 if (c != null && c.equals(m.args[0]) && Integer.valueOf(0).equals(m.getResult())) m.setResult(CUSTOM_ID);
             }
-        })) n++;
-        if (H.hook(H.find(mgr, "B", String.class), new XC_MethodHook() {
+        });
+        n += hookShape(mgr, String.class, String.class, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam m) {
                 for (java.util.Map.Entry<Integer, String> e : EXTRA_VALUE.entrySet())
                     if (e.getValue().equals(m.args[0])) { m.setResult(EXTRA_LABEL.get(e.getKey())); return; }
                 String c = customValue();
                 if (c != null && c.equals(m.args[0])) m.setResult(customLabel());
             }
-        })) n++;
+        });
         // the ratio grid: Original, 4:3, 3:2, 16:10, 16:9, 2:1, 21:9, 32:9
         if (H.hook(H.find(panel, "setData", H.cls(cl, p + "GameRatioData")), new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam m) {
                 try {
                     if (!Cfg.on(Features.GAME_VIEW_GS)) return;
                     Object data = m.args[0];
-                    if ("com.tencent.tmgp.sgame".equals(XposedHelpers.callMethod(data, "b"))) return;
+                    String pkg = dataString(data);
+                    if ("com.tencent.tmgp.sgame".equals(pkg)) return;
                     Object grid = XposedHelpers.getObjectField(m.thisObject, "mSizeChoiceView");
-                    java.util.List<?> items = (java.util.List<?>) XposedHelpers.getObjectField(grid, "mOptionItems");
+                    java.util.List<?> items = optionItems(grid);
+                    if (items == null || items.isEmpty()) return;
+                    bindItemMethods(items);
+                    if (itemId == null) return;
                     java.util.Map<Integer, Integer> res = new java.util.HashMap<>();
-                    for (Object it : items) res.put((Integer) XposedHelpers.callMethod(it, "a"), (Integer) XposedHelpers.callMethod(it, "b"));
+                    for (Object it : items) {
+                        int id = callInt(itemId, it);
+                        int label = itemLabel != null ? callInt(itemLabel, it) : 0;
+                        res.put(id, label);
+                    }
                     Integer placeholder = res.get(0);
-                    if (placeholder == null) return;
+                    if (placeholder == null || placeholder == 0) return;
                     int[] ids = new int[RATIO_ORDER.length], labels = new int[RATIO_ORDER.length];
                     int k = 0;
                     boolean custom = customRatio() > 0f;
@@ -125,10 +137,13 @@ final class GameAssistHooks {
                         Integer r = res.get(id);
                         if (id == CUSTOM_ID ? !custom : r == null && !EXTRA_VALUE.containsKey(id)) continue;
                         ids[k] = id;
-                        labels[k] = r != null ? r : placeholder;          // label replaced in getView below
+                        labels[k] = r != null && r != 0 ? r : placeholder;
                         k++;
                     }
-                    XposedHelpers.callMethod(grid, "b", java.util.Arrays.copyOf(ids, k), java.util.Arrays.copyOf(labels, k), XposedHelpers.callMethod(data, "c"));
+                    Method set = gridSet(grid.getClass());
+                    int selected = dataInt(data);
+                    if (set == null) return;
+                    set.invoke(grid, java.util.Arrays.copyOf(ids, k), java.util.Arrays.copyOf(labels, k), selected);
                 } catch (Throwable t) { Lx.e("GameAssist: Free display ratios", t); }
             }
         })) n++;
@@ -136,7 +151,10 @@ final class GameAssistHooks {
             @Override protected void afterHookedMethod(MethodHookParam m) {
                 try {
                     Object item = XposedHelpers.callMethod(m.thisObject, "getItem", m.args[0]);
-                    int id = (Integer) XposedHelpers.callMethod(item, "a");
+                    if (item == null) return;
+                    if (itemId == null) bindItemMethods(java.util.Collections.singletonList(item));
+                    if (itemId == null) return;
+                    int id = callInt(itemId, item);
                     String label = id == CUSTOM_ID ? customLabel() : EXTRA_LABEL.get(id);
                     if (label == null) return;
                     android.widget.RadioButton rb = radio((android.view.View) m.getResult());
@@ -144,8 +162,10 @@ final class GameAssistHooks {
                 } catch (Throwable t) { Lx.e("GameAssist: Free display label", t); }
             }
         })) n++;
-        // no move arrows while the ratio is stretched to the full screen
-        if (H.hook(H.find(ind, "v", float.class), new XC_MethodHook() {
+        // no move arrows while the ratio is stretched to the full screen. A15 may not keep the name "v".
+        Method arrows = H.find(ind, "v", float.class);
+        if (arrows == null) arrows = H.findBySig(ind, boolean.class, float.class);
+        if (H.hook(arrows, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam m) {
                 if (Boolean.TRUE.equals(m.getResult()) && Cfg.on(Features.GAME_VIEW_GS)) {
                     m.setResult(false);
@@ -153,7 +173,124 @@ final class GameAssistHooks {
                 }
             }
         })) n++;
-        Lx.i("GameAssist: Free display hooks " + n + "/6");
+        Lx.i("GameAssist: Free display hooks " + n + " (A15 resolves item id/label and ratio methods by shape)");
+    }
+
+    /** Every instance method `ret name(arg)` on c. Used where A15 renamed the A16 R8 methods. */
+    private static int hookShape(Class<?> c, Class<?> ret, Class<?> arg, XC_MethodHook cb) {
+        if (c == null) return 0;
+        int n = 0;
+        for (Method m : c.getDeclaredMethods()) {
+            if (m.isSynthetic() || m.isBridge() || java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
+            if (m.getReturnType() != ret) continue;
+            Class<?>[] p = m.getParameterTypes();
+            if (p.length == 1 && p[0] == arg && H.hook(m, cb)) n++;
+        }
+        return n > 0 ? 1 : 0;
+    }
+
+    private static Method itemId, itemLabel, dataPkg, dataChoice, gridSetter;
+
+    private static int callInt(Method m, Object o) throws Exception {
+        m.setAccessible(true);
+        return ((Number) m.invoke(o)).intValue();
+    }
+
+    /** OptionItem on A15 has no a()/b(). The id is a small int; the label is an Android resource id. */
+    private static void bindItemMethods(java.util.List<?> items) {
+        if (itemId != null || items == null || items.isEmpty() || items.get(0) == null) return;
+        Class<?> c = items.get(0).getClass();
+        java.util.List<Method> small = new java.util.ArrayList<>(), res = new java.util.ArrayList<>();
+        for (Method m : c.getMethods()) {
+            if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) || m.getParameterCount() != 0) continue;
+            if (m.getReturnType() != int.class && m.getReturnType() != Integer.class) continue;
+            if (m.getDeclaringClass() == Object.class) continue;
+            boolean allSmall = true, anyRes = false, ok = false;
+            for (Object it : items) {
+                if (it == null) continue;
+                try {
+                    int v = callInt(m, it);
+                    ok = true;
+                    if (v > 0x00ffffff) anyRes = true;
+                    if (v < 0 || v > 20) allSmall = false;
+                } catch (Throwable t) { allSmall = false; }
+            }
+            if (!ok) continue;
+            if (anyRes) res.add(m);
+            else if (allSmall) small.add(m);
+        }
+        if (!small.isEmpty()) itemId = small.get(0);
+        if (!res.isEmpty()) itemLabel = res.get(0);
+        Lx.i("GameAssist: Free display item id=" + (itemId == null ? "missing" : itemId.getName())
+                + " label=" + (itemLabel == null ? "missing" : itemLabel.getName()));
+    }
+
+    private static String dataString(Object data) {
+        if (data == null) return null;
+        if (dataPkg == null) {
+            Method fallback = null;
+            for (Method m : data.getClass().getMethods()) {
+                if (m.getParameterCount() != 0 || m.getReturnType() != String.class || java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
+                try {
+                    Object v = m.invoke(data);
+                    if (v instanceof String && ((String) v).indexOf('.') > 0) { dataPkg = m; break; }
+                    if (fallback == null) fallback = m;
+                } catch (Throwable ignored) { }
+            }
+            if (dataPkg == null) dataPkg = fallback;
+            if (dataPkg != null) { dataPkg.setAccessible(true); Lx.i("GameAssist: Free display package method " + dataPkg.getName()); }
+        }
+        if (dataPkg == null) return null;
+        try { return (String) dataPkg.invoke(data); } catch (Throwable t) { return null; }
+    }
+
+    private static int dataInt(Object data) {
+        if (data == null) return 0;
+        if (dataChoice == null) {
+            Method named = H.find(data.getClass(), "c");
+            if (named != null && named.getParameterCount() == 0 && named.getReturnType() == int.class) dataChoice = named;
+            else {
+                for (Method m : data.getClass().getMethods()) {
+                    if (m.getParameterCount() != 0 || m.getReturnType() != int.class || java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
+                    try {
+                        int v = callInt(m, data);
+                        if (v >= 0 && v <= 12) { dataChoice = m; break; }
+                    } catch (Throwable ignored) { }
+                }
+            }
+        }
+        if (dataChoice == null) return 0;
+        try { return callInt(dataChoice, data); } catch (Throwable t) { return 0; }
+    }
+
+    private static java.util.List<?> optionItems(Object grid) {
+        try { return (java.util.List<?>) XposedHelpers.getObjectField(grid, "mOptionItems"); }
+        catch (Throwable ignored) { }
+        for (java.lang.reflect.Field f : grid.getClass().getDeclaredFields()) {
+            if (!java.util.List.class.isAssignableFrom(f.getType())) continue;
+            try {
+                f.setAccessible(true);
+                Object v = f.get(grid);
+                if (v instanceof java.util.List && !((java.util.List<?>) v).isEmpty()) return (java.util.List<?>) v;
+            } catch (Throwable ignored) { }
+        }
+        return null;
+    }
+
+    private static Method gridSet(Class<?> grid) {
+        if (gridSetter != null) return gridSetter;
+        Method named = H.find(grid, "b", int[].class, int[].class, int.class);
+        if (named != null) return gridSetter = named;
+        for (Method m : grid.getMethods()) {
+            Class<?>[] p = m.getParameterTypes();
+            if (p.length == 3 && p[0] == int[].class && p[1] == int[].class && (p[2] == int.class || p[2] == Integer.class)) {
+                m.setAccessible(true);
+                Lx.i("GameAssist: Free display grid setter " + m.getName());
+                return gridSetter = m;
+            }
+        }
+        Lx.w("GameAssist: Free display grid setter not found");
+        return null;
     }
 
     private static android.widget.RadioButton radio(android.view.View v) {
@@ -269,14 +406,111 @@ final class GameAssistHooks {
         Lx.i("GameAssist: active-mode hooks " + n);
     }
 
+    // ------------------------------------------------------------ every plugin in every game (GAME_ALL_PLUGINS)
+
+    private static final String QS_TILE = "cn.nubia.gameassist.common.QSTile";
+    /** Plugins that need hardware this phone lacks: left to their own check. */
+    private static final java.util.Set<String> KEEP_OWN_CHECK = new java.util.HashSet<>(java.util.Arrays.asList(
+            "cn.nubia.gameassist.plugin.tiles.LiquidCoolingTile"));
+
+    /**
+     * Each plugin tile (QSTile subclass) answers isAppEnable() for the game in front: A15 keeps that name, A16 (R8) calls it
+     * f0(). When the name is gone it is found by shape: of QSTile's no-argument boolean methods, the one tiles override
+     * most is handleClick() (every tile), the next is isAppEnable() (every tile but the always-on ones). The tile classes are
+     * listed from the app's own dex files.
+     */
+    private static void allPlugins(ClassLoader cl) {
+        Class<?> base = H.cls(cl, QS_TILE);
+        if (base == null) { Lx.w("GameAssist: QSTile not found, every-plugin option unavailable"); return; }
+        java.util.List<Class<?>> tiles = new java.util.ArrayList<>();
+        for (String name : dexClasses(cl)) {
+            if (!(name.startsWith("cn.nubia.gameassist.plugin.tiles.") || name.startsWith("cn.nubia.gameassist.dessert.tiles."))) continue;
+            Class<?> c = H.cls(cl, name);
+            if (c != null && c != base && base.isAssignableFrom(c)) tiles.add(c);
+        }
+        String method = null;
+        // isAppEnable (A15) or its R8 name on Global 11.0.4MR1 (f0): taken when QSTile declares it as a no-arg boolean
+        for (String known : new String[]{"isAppEnable", "f0"}) {
+            try {
+                java.lang.reflect.Method km = base.getDeclaredMethod(known);
+                if (km.getReturnType() == boolean.class && !java.lang.reflect.Modifier.isStatic(km.getModifiers())) { method = known; break; }
+            } catch (NoSuchMethodException ignored) { }
+        }
+        if (method == null) {
+            java.util.Map<String, Integer> overrides = new java.util.HashMap<>();
+            for (java.lang.reflect.Method m : base.getDeclaredMethods()) {
+                if (m.getParameterCount() != 0 || m.getReturnType() != boolean.class || java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
+                int n = 0;
+                for (Class<?> t : tiles) { try { t.getDeclaredMethod(m.getName()); n++; } catch (NoSuchMethodException ignored) { } }
+                overrides.put(m.getName(), n);
+            }
+            java.util.List<java.util.Map.Entry<String, Integer>> ranked = new java.util.ArrayList<>(overrides.entrySet());
+            ranked.sort((a, b) -> b.getValue() - a.getValue());
+            // the always-on tiles don't override the check, and the tile packages also hold helper classes: a third of the
+            // classes is enough when it clearly leads the next candidate
+            int second = ranked.size() >= 2 ? ranked.get(1).getValue() : 0, third = ranked.size() >= 3 ? ranked.get(2).getValue() : 0;
+            if (second >= Math.max(3, tiles.size() / 3) && second > third) method = ranked.get(1).getKey();
+            Lx.i("GameAssist: plugin checks by override count " + ranked + " -> per-game check " + method);
+        }
+        if (method == null) { Lx.w("GameAssist: per-game plugin check not found (" + tiles.size() + " tiles), every-plugin option unavailable"); return; }
+        XC_MethodHook yes = new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (!Cfg.on(Features.GAME_ALL_PLUGINS) || KEEP_OWN_CHECK.contains(p.thisObject.getClass().getName())) return;
+                if (Boolean.FALSE.equals(p.getResult())) p.setResult(true);
+            }
+        };
+        int n = 0;
+        java.util.List<Class<?>> all = new java.util.ArrayList<>(tiles);
+        all.add(base);
+        for (Class<?> c : all) {
+            if (KEEP_OWN_CHECK.contains(c.getName())) continue;
+            try {
+                java.lang.reflect.Method m = c.getDeclaredMethod(method);
+                if (m.getReturnType() != boolean.class) continue;
+                if (H.hook(m, yes)) n++;
+            } catch (NoSuchMethodException ignored) { }
+        }
+        Lx.i("GameAssist: every plugin in every game: " + method + "() hooked in " + n + " of " + tiles.size() + " plugins");
+    }
+
+    /** Class names in this app's dex files (BaseDexClassLoader.pathList.dexElements[].dexFile). */
+    @SuppressWarnings("deprecation")
+    private static java.util.List<String> dexClasses(ClassLoader cl) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        try {
+            Object pathList = XposedHelpers.getObjectField(cl, "pathList");
+            Object[] elements = (Object[]) XposedHelpers.getObjectField(pathList, "dexElements");
+            for (Object el : elements) {
+                Object df = XposedHelpers.getObjectField(el, "dexFile");
+                if (!(df instanceof dalvik.system.DexFile)) continue;
+                java.util.Enumeration<String> en = ((dalvik.system.DexFile) df).entries();
+                while (en.hasMoreElements()) out.add(en.nextElement());
+            }
+        } catch (Throwable t) { Lx.e("GameAssist: listing classes", t); }
+        return out;
+    }
+
+    /** "Every plugin in every game": the per-game plugin list check alone (PluginConfig.isPluginEnable). */
+    private static boolean allPluginsOn() { return Cfg.on(Features.GAME_UNFREEZE) || Cfg.on(Features.GAME_ALL_PLUGINS); }
+
     /** Every plugin / overlay feature enabled for every package. */
     private static void unfreeze(ClassLoader cl) {
         Class<?> pc = H.cls(cl, PLUGIN_CONFIG);
         if (pc != null) {
             // isPluginEnable(Context, String)            -> firmware 11.0.11: k(Context, String)
-            H.constant(pc, "isPluginEnable", boolean.class, H.types(Context.class, String.class), true, () -> Cfg.on(Features.GAME_UNFREEZE));
+            H.constant(pc, "isPluginEnable", boolean.class, H.types(Context.class, String.class), true, GameAssistHooks::allPluginsOn);
             // isPluginEnable(Context, String, String)    -> l(Context, String, String)
-            H.constant(pc, "isPluginEnable", boolean.class, H.types(Context.class, String.class, String.class), true, () -> Cfg.on(Features.GAME_UNFREEZE));
+            // global firmware (checked on 10.5.8 GB) has isPluginEnable(Context, String, String, boolean) instead; only by its
+            // real name, so the signature fallback never grabs an unrelated obfuscated method on China firmware
+            java.lang.reflect.Method four = H.find(pc, "isPluginEnable", Context.class, String.class, String.class, boolean.class);
+            if (four != null) {
+                H.hook(four, new XC_MethodHook() {
+                    @Override protected void beforeHookedMethod(MethodHookParam p) { if (allPluginsOn()) p.setResult(true); }
+                });
+                Lx.i("GameAssist: isPluginEnable(Context, String, String, boolean) hooked (global layout)");
+            } else {
+                H.constant(pc, "isPluginEnable", boolean.class, H.types(Context.class, String.class, String.class), true, GameAssistHooks::allPluginsOn);
+            }
         }
         // Bundle flags exchanged between Game Assist and its plugins.
         XC_MethodHook bundleHook = new XC_MethodHook() {
