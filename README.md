@@ -1,6 +1,6 @@
 # RedMagic Tweaks
 
-An LSPosed module and settings app for **REDMAGIC** phones. About 260 tweaks for the status bar, Control Center,
+An LSPosed module and settings app for **REDMAGIC** phones. About 315 tweaks for the status bar, Control Center,
 lock screen and always-on display, notifications, volume and power menu, the stock launcher and its recent apps,
 Game Space, charging and fingerprint animations, boot animations and system extras.
 
@@ -13,18 +13,21 @@ explains every setting in place, and a **fail-safe** brings the phone back to st
   <img src="docs/images/app-3-status-bar.png" width="32%" alt="Status bar category with its live preview">
 </p>
 
-**Latest: [v1.1.0](../../releases/latest)**
+**Latest: [v1.2.0](../../releases/latest)** · English and Русский
 
-## What's new in v1.1
+## What's new in v1.2
 
-- **The One UI layouts are gone**: the one-tap One UI 8 look, the One UI Control Center layout, the One UI lock screen
-  and AOD clocks, the One UI volume panel and power menu, and the One UI System UI font. If you used them, the app
-  resets those settings once after the update and asks you to restart System UI, which brings back the stock look.
-- **Every customization stays**: Control Center columns, gaps, sliders and colours, the lock screen clock and date (now
-  with colours), the volume bar and power menu shapes, the status bar, notifications, AOD, launcher, recent apps styles,
-  fingerprint and charging animations, Game Space and system tweaks.
-- **Logs**: a Record logs switch (off = nothing is recorded), and Share as .txt / Save .txt to Download.
-- v1.0 is no longer offered. Install v1.1 over it; everything except the One UI layouts stays as you set it.
+- **Русский язык**: the app is in Russian when the phone's language is Russian.
+- **The One UI layouts are back**: the one-tap One UI 8 look, One UI 8 Control Center, lock screen and AOD clocks,
+  volume panel, power menu, System UI font, and the drawer's own app order.
+- **Gaming**: frame interpolation in every game with its target refresh rate, game full screen, Game view, every Game
+  Space plugin in every game, launch boost, Game Assist defer, Game Lab AI speed.
+- **Lock screen & AOD**: your own video on the lock screen and AOD, AOD clock position.
+- **Battery & charging**: battery health page, charge separation at 100 %, the China firmware's charging animations
+  (golden staff, CAMELLYA pink lotus, blue ring, crystal cube) and charging that follows the theme.
+- **Launcher**: icon packs (installed, from a zip / theme file, or two built-in One UI 8 sets), icon shape, icon size, label size, hidden labels,
+  folder columns and rows.
+- **System**: Google international mode.
 
 ## Supported phones
 
@@ -41,7 +44,8 @@ explains every setting in place, and a **fail-safe** brings the phone back to st
 
 ## Install
 
-1. Download the APK from [Releases](../../releases) and install it.
+1. Download the APK from [Releases](../../releases) and install it. This repository publishes the app and docs only —
+   the source stays private.
 2. In LSPosed, enable **RedMagic Tweaks** and tick every app in its recommended scope (System Framework, System UI,
    launcher, Game Space apps, Settings, Theme Store and the rest). LSPosed may warn about system apps; that is expected.
 3. Reboot once.
@@ -52,19 +56,19 @@ explains every setting in place, and a **fail-safe** brings the phone back to st
 
 | Category | Highlights |
 |---|---|
-| **Looks** | Back to stock in one tap, saved layouts you can switch between, export and import |
+| **Looks** | One UI 8 look or back to stock in one tap, saved layouts you can switch between, export and import |
 | **Status bar** | Clock fonts, size, colour, seconds and date · battery shapes and readouts · 16 icon packs · Wi-Fi and signal styles · network speed · notification icon limit and "+N" count |
-| **Quick panel** | Split shade (Control Center) with columns, gaps, slider position and style · tile and slider colours · classic panel grids, tile shapes and finishes |
+| **Quick panel** | Split shade (Control Center) with the One UI 8 layout, columns, gaps, slider position and style · tile and slider colours · classic panel grids, tile shapes and finishes |
 | **Notifications** | Card finishes, corners and opacity · no automatic heads-up · keep after unlock · original app icons |
-| **Lock screen & AOD** | Clock and date colours, size, position and rotation · hide widgets and hints · double-tap to sleep · AOD seconds, date, brightness and burn-in protection |
+| **Lock screen & AOD** | One UI lock and AOD clocks · your own video on the lock screen and AOD · AOD clock position · clock and date colours, size, position and rotation · hide widgets and hints · double-tap to sleep · AOD seconds, date, brightness and burn-in protection |
 | **Fingerprint** | Unlock animations (stock, collab and originals) · import your own frames · idle icon styles, colours and size · collaboration styles |
 | **Volume & power** | Volume bar width, height, shape, colours and gradients, icon place, level number, side, position and timeout · power menu button finish, position, layout and dim · no high-volume warning · volume in Do Not Disturb |
-| **Charging & battery** | Charging animations (stock, collab and four originals) · import your own frames · charging readout on the lock screen · ultra power saving · charge separation |
+| **Charging & battery** | Charging animations (stock, collab and four originals) · import your own frames · charging readout on the lock screen · ultra power saving · charge separation (also at 100 %) · battery health page |
 | **Display & performance** | Auto refresh rate up to the panel's top rate (144 Hz stock, 165 Hz with a panel mod on Android 16) · force refresh rate in every app, 60 Hz in video apps · screen timeout 30 min / never · small windows for every app |
-| **Home, drawer & recents** | Horizontal paged app drawer · grid, dock and labels · **recent apps styles: carousel, stack, cover flow, grid, list** |
-| **Gaming** | Game Assist in every app · macros and combos in any game · Super Resolution with Diablo mode · key mapping and fan light options |
+| **Home, drawer & recents** | Icon packs (also from a zip / theme file), icon shape and size · horizontal paged app drawer with your own order · grid, dock, labels and folders · **recent apps styles: carousel, stack, cover flow, grid, list** |
+| **Gaming** | Frame interpolation in every game · game full screen · Game view · Game Assist in every app · macros and combos in any game · Super Resolution with Diablo mode · key mapping and fan light options |
 | **Fonts, themes & boot** | Lock clock font import · boot animations (RisingOS set plus your own) · Theme Store collaboration packs |
-| **System & apps** | Settings extras · gestures · NFC · app cloning · airplane mode keeps Wi-Fi / Bluetooth · block ZTE telemetry |
+| **System & apps** | Settings extras · Google international mode · gestures · NFC · app cloning · airplane mode keeps Wi-Fi / Bluetooth · block ZTE telemetry |
 | **Advanced** | Screenshots in protected apps, no thermal throttling of the refresh rate, phantom-process limit off and other tweaks that need care |
 
 ## If something goes wrong
@@ -81,20 +85,10 @@ RedMagic Tweaks has a fail-safe:
   - boot into your root manager's safe mode, which turns off LSPosed and every module
 - **Logs**: turn on Record logs in the app, reproduce the problem, then Share as .txt and attach it to an issue.
 
-## Building
+## Source
 
-```sh
-./gradlew assemblePublicRelease
-```
-
-The APK lands in `app/build/outputs/apk/public/release/`. Without a signing key it is signed with the debug key. CI
-(`.github/workflows/build.yml`) builds every push and publishes a release for every `v*` tag, or when it is run by hand
-from the Actions page with a version in "release". `Previews` renders the
-app's look previews with Robolectric so drawings can be checked without a phone.
-
-Source layout: `app/src/main/java/com/hammad/redmagictweaks/` holds the settings app and the feature catalogue,
-`xposed/` the hooks (`Entry` dispatches per app, one `*Hooks` class per app), `*Art` classes the drawing code shared by
-the hooks and the previews.
+This public repo is **RedMagic Tweaks** releases and documentation only (README, release notes, screenshots). The
+application source is not published here. Install builds from [Releases](../../releases).
 
 ## Credits
 
@@ -114,5 +108,4 @@ Artwork and trademarks belong to their owners.
 
 ## License
 
-[GNU General Public License v3.0](LICENSE). Bundled third-party assets keep their own licences (see
-`app/src/main/assets/licenses`).
+[GNU General Public License v3.0](LICENSE). Bundled third-party assets in the APK keep their own licences.
